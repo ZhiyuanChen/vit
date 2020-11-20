@@ -3,24 +3,36 @@ from collections import OrderedDict as OrderedDict
 import torch
 import numpy as np
 
+from tqdm import tqdm
+
 
 def convert(npz):
     state_dict = OrderedDict()
     state_dict['cls_token'] = torch.tensor(npz['cls'])
-    for i in npz:
-        if i == 'cls' or 'key' in i or 'value' in i:
-            continue
-        key = reanme(i)
-        value = torch.tensor(npz[i])
-        if 'fc' in key or 'head' in key:
-            value = value.T
-        elif 'att' in key:
-            value = value.view(-1, 1024).T
-        elif 'patch_embed.proj.weight' in key:
-            value = value.permute(3, 2, 0, 1)
-        if 'qkv' in key:
-            value = torch.cat((value, torch.tensor(npz[i.replace('query', 'key')]).view(-1, 1024).T, torch.tensor(npz[i.replace('query', 'value')]).view(-1, 1024).T))
-        state_dict[key] = value.squeeze()
+    size = -1
+    try:
+        for i in tqdm(npz):
+            if i == 'cls' or 'key' in i or 'value' in i:
+                continue
+            key = reanme(i)
+            value = torch.tensor(npz[i])
+            if 'fc' in key or 'head' in key:
+                value = value.T
+            elif 'att' in key:
+                if 'bias' in key:
+                    value = value.view(-1)
+                    size = value.shape[0]
+                    if 'qkv' in key:
+                        value = torch.cat((value, torch.tensor(npz[i.replace('query', 'key')]).view(-1).T, torch.tensor(npz[i.replace('query', 'value')]).view(-1).T))
+                if 'weight' in key:
+                    value = value.view(-1, size).T
+                    if 'qkv' in key:
+                        value = torch.cat((value, torch.tensor(npz[i.replace('query', 'key')]).view(-1, size).T, torch.tensor(npz[i.replace('query', 'value')]).view(-1, size).T))
+            elif 'patch_embed.proj.weight' in key:
+                value = value.permute(3, 2, 0, 1)
+            state_dict[key] = value.squeeze()
+    except Exception:
+         import pdb; pdb.set_trace()
     return state_dict
 
 
@@ -48,7 +60,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if not args.source.endswith('.npz'):
         raise ValueError('Invalid source file provided, it must ends with .npz')
-    if not args.target
+    if not args.target:
         args.target = args.source.replace('.npz', '.pth')
     npz = np.load(args.source)
     sd = convert(npz)
