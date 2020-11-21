@@ -30,7 +30,9 @@ def convert(npz):
                         value = torch.cat((value, torch.tensor(npz[i.replace('query', 'key')]).view(-1, size).T, torch.tensor(npz[i.replace('query', 'value')]).view(-1, size).T))
             elif 'patch_embed.proj.weight' in key:
                 value = value.permute(3, 2, 0, 1)
-            state_dict[key] = value.squeeze()
+            if key != 'pos_embed':
+                value = value.squeeze()
+            state_dict[key] = value
     except Exception:
          import pdb; pdb.set_trace()
     return state_dict
