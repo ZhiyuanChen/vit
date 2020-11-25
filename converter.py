@@ -22,15 +22,15 @@ def convert(npz):
                 if 'bias' in key:
                     value = value.view(-1)
                     size = value.shape[0]
-                    if 'qkv' in key:
+                    if 'in_proj' in key:
                         value = torch.cat((value, torch.tensor(npz[i.replace('query', 'key')]).view(-1).T, torch.tensor(npz[i.replace('query', 'value')]).view(-1).T))
                 if 'weight' in key:
                     value = value.view(-1, size).T
-                    if 'qkv' in key:
+                    if 'in_proj' in key:
                         value = torch.cat((value, torch.tensor(npz[i.replace('query', 'key')]).view(-1, size).T, torch.tensor(npz[i.replace('query', 'value')]).view(-1, size).T))
-            elif 'patch_embed.proj.weight' in key:
+            elif 'embedding.weight' in key:
                 value = value.permute(3, 2, 0, 1)
-            if key != 'pos_embed':
+            if key != 'encoder.pos_embed':
                 value = value.squeeze()
             state_dict[key] = value
     except Exception:
@@ -44,13 +44,14 @@ def reanme(s):
     s = s.replace('scale', 'weight').replace('kernel', 'weight')
     s = s.replace('LayerNorm', 'norm').replace('MlpBlock', 'mlp')
     s = s.replace('MultiHeadDotProductAttention.1', 'attention')
-    # s = s.replace('MultiHeadDotProductAttention.1', 'attn')
-    s = s.replace('encoderblock', 'blocks')
+    s = s.replace('encoderblock', 'encoder.blocks')
     s = s.replace('norm.0', 'norm1').replace('norm.2', 'norm2')
     s = s.replace('3.Dense.0', 'fc1').replace('3.Dense.1', 'fc2')
-    s = s.replace('posembed.input.pos.embedding', 'pos_embed')
-    s = s.replace('embedding', 'patch_embed.proj') 
-    s = s.replace('out', 'proj').replace('query', 'qkv')
+    s = s.replace('posembed.input.pos.embedding', 'encoder.pos_embed')
+    s = s.replace('out', 'out_proj').replace('query', 'in_proj')
+    s = s.replace('norm.bias', 'encoder.norm.bias')
+    s = s.replace('norm.weight', 'encoder.norm.weight')
+    s = s.replace('pre.logits', 'pre_logits')
     return s
 
 
