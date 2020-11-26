@@ -61,8 +61,8 @@ class Encoder1DBlock(nn.Module):
         self.mlp = MLPBlock(in_channels=hidden_size, hidden_channels=mlp_dim, dropout=drop)
 
     def forward(self, x):
-        x += self.attention(self.norm1(x))
-        x += self.mlp(self.norm2(x))
+        x = x + self.attention(self.norm1(x))
+        x = x + self.mlp(self.norm2(x))
         return x
 
 
@@ -91,7 +91,7 @@ class Encoder(nn.Module):
         nn.init.trunc_normal_(self.pos_embed, std=.02)
 
     def forward(self, x):
-        x += self.pos_embed
+        x = x + self.pos_embed
         x = self.dropout(x)
         x = self.blocks(x)
         x = self.norm(x)
@@ -113,6 +113,8 @@ class VisionTransformer(nn.Module):
         self.encoder = Encoder(img_size, patches, hidden_size, num_layers,
             num_heads, mlp_ratio, attn_bias, attn_scale, dropout, attn_dropout,
             norm_layer)
+        if pre_size:
+            pre_size = pre_size if type(pre_size) is int else hidden_size
         self.pre_logits = nn.Linear(hidden_size, pre_size) if pre_size else nn.Identity()
         self.tanh = nn.Tanh() if pre_size else nn.Identity()
         self.head = nn.Linear(pre_size or hidden_size, num_classes)
