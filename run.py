@@ -1,8 +1,11 @@
 import argparse
 import subprocess
+import os
 
 import models
 
+
+prof = 'nvprof --profile-child-processes --profile-from-start off -fo {}'
 
 comm = 'GLOG_logtostderr=-1 GLOG_vmodule=MemcachedClient=-1 MC_COUNT_DISP=1000000 \
         OMPI_MCA_btl_smcuda_use_cuda_ipc=0 OMPI_MCA_mpi_warn_on_fork=0  \
@@ -29,8 +32,13 @@ def parse():
     mode.add_argument('-t', '--train', action='store_true')
     mode.add_argument('-v', '--validate', action='store_true',
                       help='validate model on validation set')
+
     parser.add_argument('--profile', default=-1, type=int,
                         help='Run a few iterations for profiling.')
+    parser.add_argument('--profile_dir', default='profile', type=str,
+                        help='directory of profile files')
+    parser.add_argument('--profile_name', default='%p.nvprof', type=str,
+                        help='name of profile files')
 
     parser.add_argument('-d', '--data', metavar='DIR', help='path to dataset',
                         default='/mnt/lustre/share_data/ImageNet-Pytorch')
@@ -106,8 +114,12 @@ if __name__ == '__main__':
                 arguments.append(f'--{k}')
         else:
             arguments.append(f'--{k} {v}')
-    arguments = ' ' + ' '.join(arguments)
-    command += arguments
+    arguments = ' '.join(arguments)
+    if args.profile >= 0:
+        os.makedirs(args.profile_dir)
+        command += ' ' + prof.format(
+            os.path.join(args.profile_dir, args.profile_name))
+    command += ' ' + arguments
     command = ' '.join(command.split())
     print(command)
     res = subprocess.run(command, shell=True)
