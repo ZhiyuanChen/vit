@@ -4,14 +4,10 @@ import time
 import torch
 import torch.nn as nn
 import torch.nn.parallel
-import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.transforms as transforms
-
-import numpy as np
-import subprocess
 
 try:
     from apex.parallel import DistributedDataParallel as DDP
@@ -127,7 +123,7 @@ def train(train_loader, model, criterion, optimizer, epoch, warmup_epoch, args):
     model.train()
     end = time.time()
 
-    for iteration, (input, target) in tqdm(enumerate(train_loader), total=len(train_loader)):
+    for iteration, (input, target) in enumerate(train_loader):
         adjust_learning_rate(args.lr, optimizer, epoch, warmup_epoch, iteration, len(train_loader))
 
         output = model(input)
@@ -162,8 +158,8 @@ def train(train_loader, model, criterion, optimizer, epoch, warmup_epoch, args):
                 'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                 'Speed {3:.3f} ({4:.3f})\t'
                 'Loss {loss.val:.10f} ({loss.avg:.4f})\t'
-                'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
                     epoch, iteration, len(train_loader),
                     args.world_size*args.batch_size/batch_time.val,
                     args.world_size*args.batch_size/batch_time.avg,
@@ -174,6 +170,7 @@ def train(train_loader, model, criterion, optimizer, epoch, warmup_epoch, args):
 if __name__ == '__main__':
     global args    
     args = parse()
-    log(args)
+    log('\nArguments:')
+    log('\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
 
     main(args)

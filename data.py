@@ -58,8 +58,8 @@ class DataLoader(object):
             torch.cuda.nvtx.range_push("DataLoader.preload()")
         self.next_input, self.next_target = next(self.iter)
         with torch.cuda.stream(self.stream):
-            self.next_input = self.next_input.cuda(non_blocking=False)
-            self.next_target = self.next_target.cuda(non_blocking=False)
+            self.next_input = self.next_input.cuda(non_blocking=True)
+            self.next_target = self.next_target.cuda(non_blocking=True)
             self.next_input = self.next_input.float()
             # normalize
             self.next_input = self.next_input.sub_(127.5).div_(127.5)
