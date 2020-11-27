@@ -116,7 +116,7 @@ if __name__ == '__main__':
             arguments.append(f'--{k} {v}')
     arguments = ' '.join(arguments)
     if args.profile >= 0:
-        os.makedirs(args.profile_dir)
+        os.makedirs(args.profile_dir, exist_ok=True)
         command += ' ' + prof.format(
             os.path.join(args.profile_dir, args.profile_name))
     command += ' ' + arguments
