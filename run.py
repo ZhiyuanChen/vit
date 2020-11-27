@@ -29,8 +29,8 @@ def parse():
     mode.add_argument('-t', '--train', action='store_true')
     mode.add_argument('-v', '--validate', action='store_true',
                       help='validate model on validation set')
-    mode.add_argument('--profile', default=-1, type=int,
-                      help='Only run 10 iterations for profiling.')
+    parser.add_argument('--profile', default=-1, type=int,
+                        help='Only run 10 iterations for profiling.')
 
     parser.add_argument('-d', '--data', metavar='DIR', help='path to dataset',
                         default='/mnt/lustre/share_data/ImageNet-Pytorch')
