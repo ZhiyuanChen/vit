@@ -7,7 +7,7 @@ import models
 comm = 'GLOG_logtostderr=-1 GLOG_vmodule=MemcachedClient=-1 MC_COUNT_DISP=1000000 \
         OMPI_MCA_btl_smcuda_use_cuda_ipc=0 OMPI_MCA_mpi_warn_on_fork=0  \
         srun --mpi=pmi2 --job-name={} --partition={} -n {} --gres=gpu:{} --ntasks-per-node={} \
-        python -u train.py '
+        python -u {}.py'
 
 def set_gpu(gpus):
     if gpus < 8:
@@ -25,11 +25,12 @@ def parse():
                      and callable(models.__dict__[name]))
     parser = argparse.ArgumentParser(description='Vision Transformer')
 
-    parser.add_argument('-t', '--train', type=bool, default=True)
-    parser.add_argument('-v', '--evaluate', type=bool, default=False,
-                        help='evaluate model on validation set')
-    parser.add_argument('-pt', '--pretrained', type=bool, default=False,
-                        help='use pre-trained model')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('-t', '--train', action='store_true')
+    mode.add_argument('-v', '--validate', action='store_true',
+                      help='validate model on validation set')
+    mode.add_argument('--profile', default=-1, type=int,
+                      help='Only run 10 iterations for profiling.')
 
     parser.add_argument('-d', '--data', metavar='DIR', help='path to dataset',
                         default='/mnt/lustre/share_data/ImageNet-Pytorch')
@@ -38,16 +39,18 @@ def parse():
                         help='model architecture: ' +
                         ' | '.join(model_names) +
                         ' (default: l16)')
+    parser.add_argument('-pt', '--pretrained', action='store_true',
+                        help='use pre-trained model')
     parser.add_argument('-c', '--checkpoint',
                         default='checkpoints/21kl16.pth',
                         type=str,
-                        help='checkpoint to test')
+                        help='checkpoint to validate')
     parser.add_argument('-b', '--batch_size', default=12, type=int,
                         metavar='N', help='mini-batch size per process (default: 12)')
     parser.add_argument('-w', '--workers', default=2, type=int, metavar='N',
                         help='number of data loading workers (default: 2)')
-    parser.add_argument('-pf', '--print_freq', default=10, type=int,
-                        metavar='N', help='print frequency (default: 10)')
+    parser.add_argument('-pf', '--print_freq', default=20, type=int,
+                        metavar='N', help='print frequency (default: 20)')
 
     parser.add_argument('-e', '--epochs', default=200, type=int, metavar='N',
                         help='number of total epochs to run')
@@ -63,24 +66,24 @@ def parse():
                         metavar='W', help='weight decay (default: 1e-4)')
     parser.add_argument('-r', '--resume', default=None, type=str, metavar='PATH',
                         help='path to latest checkpoint (default: None)')
-    parser.add_argument('--prof', default=-1, type=int,
-                        help='Only run 10 iterations for profiling.')
-    parser.add_argument('--deterministic', type=bool, default=False)
+    parser.add_argument('--deterministic', action='store_true')
 
     parser.add_argument("--local_rank", default=0, type=int)
-    parser.add_argument('--sync_bn', type=bool, default=False,
+    parser.add_argument('--sync_bn', action='store_true',
                         help='enabling apex sync BN.')
     parser.add_argument('--opt_level', type=str, default='O0')
     parser.add_argument('--keep_batchnorm_fp32', type=str, default=None)
     parser.add_argument('--loss_scale', type=str, default=None)
-    parser.add_argument('--channels_last', type=bool, default=False)
+    parser.add_argument('--channels_last', action='store_true')
 
-    parser.add_argument('--slurm', type=bool, default=True)
+    parser.add_argument('--slurm', action='store_true')
     parser.add_argument('--port', type=str, default='29500')
     parser.add_argument('-j', '--job_name', default='ViT', type=str)
     parser.add_argument('-p','--partition', default='pat_prototype', type=str)
     parser.add_argument('-x', '--exclude', nargs='+', default=None)
     parser.add_argument('-g', '--gpus', default=8, type=int)
+
+    parser.set_defaults(slurm=True)
     args, unknown = parser.parse_known_args()
     return args
 
@@ -88,14 +91,30 @@ def parse():
 if __name__ == '__main__':
     args = parse()
 
-    # train
-    if args.train:
-        gpus, gres_gpu, ntasks_per_node = set_gpu(args.gpus)
-        train_command = comm.format(
-            args.job_name, args.partition, gpus, gres_gpu, ntasks_per_node)
-        train_command += ' '.join([f'--{key} {value}' for key, value in vars(args).items() if value is not None])
-        train_command = ' '.join(train_command.split())
-        print(train_command)
-        res = subprocess.run(train_command, shell=True)
-        if res != 0:
-            exit(1)
+    mode, param = 'train', ''
+    if args.validate:
+        mode = 'validate'
+    elif args.profile >= 0:
+        mode = 'profile'
+        param = str(args.profile)
+    arguments = [f' --{mode} {param}']
+
+    gpus, gres_gpu, ntasks_per_node = set_gpu(args.gpus)
+    command = comm.format(
+        args.job_name, args.partition, gpus, gres_gpu, ntasks_per_node, mode)
+
+    for k, v in vars(args).items():
+        if v is None or k in ('train', 'validate', 'profile'):
+            continue
+        elif type(v) is bool:
+            if v:
+                arguments.append(f'--{k}')
+        else:
+            arguments.append(f'--{k} {v}')
+    arguments = ' '.join(arguments)
+    command += arguments
+    command = ' '.join(command.split())
+    print(command)
+    res = subprocess.run(command, shell=True)
+    if res != 0:
+        exit(1)
