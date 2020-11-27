@@ -123,16 +123,28 @@ def train(train_loader, model, criterion, optimizer, epoch, warmup_epoch, args):
     model.train()
     end = time.time()
 
-    for iteration, (input, target) in enumerate(train_loader):
+    for iteration, (data, target) in enumerate(train_loader):
+        if args.profile >= 0 and iteration == args.profile:
+            log("Profiling begun at iteration {}".format(iteration))
+            torch.cuda.cudart().cudaProfilerStart()
+        if args.profile >= 0: torch.cuda.nvtx.range_push("Body of iteration {}".format(iteration))
         adjust_learning_rate(args.lr, optimizer, epoch, warmup_epoch, iteration, len(train_loader))
 
-        output = model(input)
+        if args.profile >= 0: torch.cuda.nvtx.range_push("forward")
+        output = model(data)
+        if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         loss = criterion(output, target)
         optimizer.zero_grad()
+
+        if args.profile >= 0: torch.cuda.nvtx.range_push("backward")
         with amp.scale_loss(loss, optimizer) as scaled_loss:
             scaled_loss.backward()
+        if args.profile >= 0: torch.cuda.nvtx.range_pop()
+
+        if args.profile >= 0: torch.cuda.nvtx.range_push("optimizer.step()")
         optimizer.step()
+        if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         if iteration % args.print_freq == 0:
             # measure accuracy
@@ -145,9 +157,9 @@ def train(train_loader, model, criterion, optimizer, epoch, warmup_epoch, args):
                     reduced_loss, acc1, acc5, world_size=args.world_size)
 
             # to_python_float incurs a host<->device sync
-            losses.update(to_python_float(reduced_loss), input.size(0))
-            top1.update(to_python_float(acc1), input.size(0))
-            top5.update(to_python_float(acc5), input.size(0))
+            losses.update(to_python_float(reduced_loss), data.size(0))
+            top1.update(to_python_float(acc1), data.size(0))
+            top5.update(to_python_float(acc5), data.size(0))
 
             # measure elapsed time
             torch.cuda.synchronize()
@@ -165,6 +177,13 @@ def train(train_loader, model, criterion, optimizer, epoch, warmup_epoch, args):
                     args.world_size*args.batch_size/batch_time.avg,
                     batch_time=batch_time,
                     loss=losses, top1=top1, top5=top5))
+            
+        if args.profile >= 0: torch.cuda.nvtx.range_pop()
+
+        if args.profile >= 0 and iteration == args.profile + 10:
+            log("Profiling ended at iteration {}".format(iteration))
+            torch.cuda.cudart().cudaProfilerStop()
+            quit()
 
 
 if __name__ == '__main__':

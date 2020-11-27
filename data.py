@@ -47,7 +47,7 @@ class DataLoader(object):
         self.loader = torch.utils.data.DataLoader(*args, **kwargs)
         self.iter = iter(self.loader)
         self.stream = torch.cuda.Stream()
-        self.next_input = None
+        self.next_data = None
         self.next_target = None
         # self.mean = torch.tensor([0.485 * 255, 0.456 * 255, 0.406 * 255]).cuda().view(1,3,1,1)
         # self.std = torch.tensor([0.229 * 255, 0.224 * 255, 0.225 * 255]).cuda().view(1,3,1,1)
@@ -56,14 +56,14 @@ class DataLoader(object):
     def __preload(self):
         if self.profile >= 0:
             torch.cuda.nvtx.range_push("DataLoader.preload()")
-        self.next_input, self.next_target = next(self.iter)
+        self.next_data, self.next_target = next(self.iter)
         with torch.cuda.stream(self.stream):
-            self.next_input = self.next_input.cuda(non_blocking=True)
+            self.next_data = self.next_data.cuda(non_blocking=True)
             self.next_target = self.next_target.cuda(non_blocking=True)
-            self.next_input = self.next_input.float()
+            self.next_data = self.next_data.float()
             # normalize
-            self.next_input = self.next_input.sub_(127.5).div_(127.5)
-            # self.next_input = self.next_input.sub_(self.mean).div_(self.std)
+            self.next_data = self.next_data.sub_(127.5).div_(127.5)
+            # self.next_data = self.next_data.sub_(self.mean).div_(self.std)
         if self.profile >= 0:
             torch.cuda.nvtx.range_pop()
 
@@ -75,14 +75,14 @@ class DataLoader(object):
 
     def __next__(self):
         torch.cuda.current_stream().wait_stream(self.stream)
-        input = self.next_input
+        data = self.next_data
         target = self.next_target
-        if input is not None:
-            input.record_stream(torch.cuda.current_stream())
+        if data is not None:
+            data.record_stream(torch.cuda.current_stream())
         if target is not None:
             target.record_stream(torch.cuda.current_stream())
         self.__preload()
-        return input, target
+        return data, target
 
     @staticmethod
     def __collate_fn(batch, memory_format):

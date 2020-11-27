@@ -97,9 +97,9 @@ def validate(val_loader, model, criterion, args):
     model.eval()
     end = time.time()
 
-    for iteration, (input, target) in enumerate(val_loader):
+    for iteration, (data, target) in enumerate(val_loader):
         with torch.no_grad():
-            output = model(input)
+            output = model(data)
             loss = criterion(output, target)
 
         # measure accuracy
@@ -112,9 +112,9 @@ def validate(val_loader, model, criterion, args):
                 reduced_loss, acc1, acc5, world_size=args.world_size)
 
         # to_python_float incurs a host<->device sync
-        losses.update(to_python_float(reduced_loss), input.size(0))
-        top1.update(to_python_float(acc1), input.size(0))
-        top5.update(to_python_float(acc5), input.size(0))
+        losses.update(to_python_float(reduced_loss), data.size(0))
+        top1.update(to_python_float(acc1), data.size(0))
+        top5.update(to_python_float(acc5), data.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
