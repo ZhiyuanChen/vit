@@ -36,7 +36,6 @@ def main(args):
     init(args)
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
-    # create model
     log("creating model '{}'".format(args.arch))
     model = models.__dict__[args.arch](pretrained=args.pretrained)
 
@@ -56,7 +55,6 @@ def main(args):
 
     model = model.cuda().to(memory_format=memory_format)
 
-    # Scale learning rate based on global batch size
     args.lr = args.lr * float(args.batch_size*args.world_size) / 256.
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
@@ -74,7 +72,6 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss().cuda()
 
-    # Data loading code
     traindir = os.path.join(args.data, 'train')
     valdir = os.path.join(args.data, 'val')
 
@@ -91,9 +88,11 @@ def main(args):
         transforms.CenterCrop(crop_size),
     ])
     train_dataset, train_sampler, train_loader = \
-        data.load_data(traindir, train_transform, args.batch_size, args.workers)
+        data.load_data(traindir, train_transform, args.batch_size,
+                       args.workers, memory_format, profile=args.profile)
     val_dataset, val_sampler, val_loader = \
-        data.load_data(valdir, val_transform, args.batch_size, args.workers, shuffle=False)
+        data.load_data(valdir, val_transform, args.batch_size, args.workers,
+                       memory_format, shuffle=False, profile=args.profile)
 
     log("length of traning dataset '{}'".format(len(train_loader)))
     log("length of validation dataset '{}'".format(len(val_loader)))
@@ -102,13 +101,10 @@ def main(args):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
-        # train
         train(train_loader, model, criterion, optimizer, epoch, args.warmup_epoch, args)
 
-        # validate
         acc1 = validate(val_loader, model, criterion, args)
 
-        # save
         if args.local_rank == 0:
             is_best = acc1 > best_acc1
             best_acc1 = max(acc1, best_acc1)
@@ -131,7 +127,7 @@ def train(train_loader, model, criterion, optimizer, epoch, warmup_epoch, args):
     model.train()
     end = time.time()
 
-    for iteration, (input, target) in tqdm(enumerate(train_loader)):
+    for iteration, (input, target) in tqdm(enumerate(train_loader), total=len(train_loader)):
         adjust_learning_rate(args.lr, optimizer, epoch, warmup_epoch, iteration, len(train_loader))
 
         output = model(input)
@@ -157,6 +153,7 @@ def train(train_loader, model, criterion, optimizer, epoch, warmup_epoch, args):
             top1.update(to_python_float(acc1), input.size(0))
             top5.update(to_python_float(acc5), input.size(0))
 
+            # measure elapsed time
             torch.cuda.synchronize()
             batch_time.update((time.time() - end) / args.print_freq)
             end = time.time()

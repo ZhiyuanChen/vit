@@ -30,7 +30,7 @@ def parse():
     mode.add_argument('-v', '--validate', action='store_true',
                       help='validate model on validation set')
     parser.add_argument('--profile', default=-1, type=int,
-                        help='Only run 10 iterations for profiling.')
+                        help='Run a few iterations for profiling.')
 
     parser.add_argument('-d', '--data', metavar='DIR', help='path to dataset',
                         default='/mnt/lustre/share_data/ImageNet-Pytorch')
@@ -83,7 +83,7 @@ def parse():
     parser.add_argument('-x', '--exclude', nargs='+', default=None)
     parser.add_argument('-g', '--gpus', default=8, type=int)
 
-    parser.set_defaults(slurm=True)
+    parser.set_defaults(train=True, slurm=True)
     args, unknown = parser.parse_known_args()
     return args
 
@@ -91,27 +91,22 @@ def parse():
 if __name__ == '__main__':
     args = parse()
 
-    mode, param = 'train', ''
-    if args.validate:
-        mode = 'validate'
-    elif args.profile >= 0:
-        mode = 'profile'
-        param = str(args.profile)
-    arguments = [f' --{mode} {param}']
+    mode = 'train' if args.train else 'validate'
+    arguments = list()
 
     gpus, gres_gpu, ntasks_per_node = set_gpu(args.gpus)
     command = comm.format(
         args.job_name, args.partition, gpus, gres_gpu, ntasks_per_node, mode)
 
     for k, v in vars(args).items():
-        if v is None or k in ('train', 'validate', 'profile'):
+        if v is None or k in ('train', 'validate'):
             continue
         elif type(v) is bool:
             if v:
                 arguments.append(f'--{k}')
         else:
             arguments.append(f'--{k} {v}')
-    arguments = ' '.join(arguments)
+    arguments = ' ' + ' '.join(arguments)
     command += arguments
     command = ' '.join(command.split())
     print(command)

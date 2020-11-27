@@ -35,7 +35,6 @@ def main(args):
     init(args)
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
-    # create model
     log("creating model '{}'".format(args.arch))
     model = models.__dict__[args.arch](pretrained=args.pretrained)
 
@@ -52,12 +51,10 @@ def main(args):
 
     model = model.cuda().to(memory_format=memory_format)
 
-    # Scale learning rate based on global batch size
     args.lr = args.lr * float(args.batch_size*args.world_size) / 256.
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
-    # scheduler = LRScheduler(optimizer)
 
     model, optimizer = amp.initialize(
         model, optimizer, opt_level=args.opt_level,
@@ -70,7 +67,6 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss().cuda()
 
-    # Data loading code
     traindir = os.path.join(args.data, 'train')
     valdir = os.path.join(args.data, 'val')
 
@@ -98,12 +94,10 @@ def validate(val_loader, model, criterion, args):
     top1 = AverageMeter()
     top5 = AverageMeter()
 
-    # switch to evaluate mode
     model.eval()
     end = time.time()
 
     for iteration, (input, target) in enumerate(val_loader):
-        # compute output
         with torch.no_grad():
             output = model(input)
             loss = criterion(output, target)
@@ -112,11 +106,12 @@ def validate(val_loader, model, criterion, args):
         acc1, acc5 = accuracy(output.data, target, topk=(1, 5))
         reduced_loss = loss.data
 
-        # Average loss and accuracy across processes for logging
+        # average loss and accuracy across processes for logging
         if args.distributed:
             reduced_loss, acc1, acc5 = reduce_tensors(
                 reduced_loss, acc1, acc5, world_size=args.world_size)
 
+        # to_python_float incurs a host<->device sync
         losses.update(to_python_float(reduced_loss), input.size(0))
         top1.update(to_python_float(acc1), input.size(0))
         top5.update(to_python_float(acc5), input.size(0))
