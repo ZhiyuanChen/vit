@@ -105,7 +105,6 @@ def validate(val_loader, model, criterion, args):
     for iteration, (input, target) in enumerate(val_loader):
         # compute output
         with torch.no_grad():
-            if input is None:
             output = model(input)
             loss = criterion(output, target)
 
