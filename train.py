@@ -68,7 +68,7 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss().cuda()
 
-    traindir = os.path.join(args.data, 'train')
+    traindir = os.path.join(args.data, 'val')
     valdir = os.path.join(args.data, 'val')
 
     crop_size = 384
@@ -85,10 +85,10 @@ def main(args):
     ])
     train_dataset, train_sampler, train_loader = \
         data.load_data(traindir, train_transform, args.batch_size,
-                       args.workers, memory_format, profile=args.profile)
+                       args.workers, memory_format)
     val_dataset, val_sampler, val_loader = \
         data.load_data(valdir, val_transform, args.batch_size, args.workers,
-                       memory_format, shuffle=False, profile=args.profile)
+                       memory_format, shuffle=False)
 
     log("length of traning dataset '{}'".format(len(train_loader)))
     log("length of validation dataset '{}'".format(len(val_loader)))
@@ -113,7 +113,7 @@ def main(args):
             }, is_best)
 
 
-def train(train_loader, model, criterion, optimizer, epoch, warmup_epoch, args):
+def train(loader, model, criterion, optimizer, epoch, warmup_epoch, args):
     log('training {}'.format(epoch))
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -123,15 +123,20 @@ def train(train_loader, model, criterion, optimizer, epoch, warmup_epoch, args):
     model.train()
     end = time.time()
 
-    for iteration, (data, target) in enumerate(train_loader):
+    iteration = 0
+    fetcher = data.DataFetcher(loader)
+    images, target = fetcher.next()
+
+    while images is not None:
+        iteration += 1
         if args.profile >= 0 and iteration == args.profile:
             log("Profiling begun at iteration {}".format(iteration))
             torch.cuda.cudart().cudaProfilerStart()
         if args.profile >= 0: torch.cuda.nvtx.range_push("Body of iteration {}".format(iteration))
-        adjust_learning_rate(args.lr, optimizer, epoch, warmup_epoch, iteration, len(train_loader))
+        adjust_learning_rate(args.lr, optimizer, epoch, warmup_epoch, iteration, len(loader))
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("forward")
-        output = model(data)
+        output = model(images)
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         loss = criterion(output, target)
@@ -157,9 +162,9 @@ def train(train_loader, model, criterion, optimizer, epoch, warmup_epoch, args):
                     reduced_loss, acc1, acc5, world_size=args.world_size)
 
             # to_python_float incurs a host<->device sync
-            losses.update(to_python_float(reduced_loss), data.size(0))
-            top1.update(to_python_float(acc1), data.size(0))
-            top5.update(to_python_float(acc5), data.size(0))
+            losses.update(to_python_float(reduced_loss), images.size(0))
+            top1.update(to_python_float(acc1), images.size(0))
+            top5.update(to_python_float(acc5), images.size(0))
 
             # measure elapsed time
             torch.cuda.synchronize()
@@ -172,12 +177,16 @@ def train(train_loader, model, criterion, optimizer, epoch, warmup_epoch, args):
                 'Loss {loss.val:.10f} ({loss.avg:.4f})\t'
                 'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                 'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    epoch, iteration, len(train_loader),
+                    epoch, iteration, len(loader),
                     args.world_size*args.batch_size/batch_time.val,
                     args.world_size*args.batch_size/batch_time.avg,
                     batch_time=batch_time,
                     loss=losses, top1=top1, top5=top5))
-            
+
+        if args.profile >= 0: torch.cuda.nvtx.range_push("fetcher.next()")
+        images, target = fetcher.next()
+        if args.profile >= 0: torch.cuda.nvtx.range_pop()
+
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         if args.profile >= 0 and iteration == args.profile + 10:

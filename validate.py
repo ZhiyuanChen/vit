@@ -67,7 +67,6 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss().cuda()
 
-    traindir = os.path.join(args.data, 'train')
     valdir = os.path.join(args.data, 'val')
 
     crop_size = 384
@@ -80,14 +79,14 @@ def main(args):
     ])
     val_dataset, val_sampler, val_loader = \
         data.load_data(valdir, val_transform, args.batch_size, args.workers,
-                       memory_format, shuffle=False, profile=args.profile)
+                       memory_format, shuffle=False)
 
     log("length of validation dataset '{}'".format(len(val_loader)))
 
     validate(val_loader, model, criterion, args)
 
 
-def validate(val_loader, model, criterion, args):
+def validate(loader, model, criterion, args):
     log('evaluating')
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -97,9 +96,14 @@ def validate(val_loader, model, criterion, args):
     model.eval()
     end = time.time()
 
-    for iteration, (data, target) in enumerate(val_loader):
+    iteration = 0
+    fetcher = data.DataFetcher(loader)
+    images, target = fetcher.next()
+
+    while images is not None:
+        iteration += 1
         with torch.no_grad():
-            output = model(data)
+            output = model(images)
             loss = criterion(output, target)
 
         # measure accuracy
@@ -112,9 +116,9 @@ def validate(val_loader, model, criterion, args):
                 reduced_loss, acc1, acc5, world_size=args.world_size)
 
         # to_python_float incurs a host<->device sync
-        losses.update(to_python_float(reduced_loss), data.size(0))
-        top1.update(to_python_float(acc1), data.size(0))
-        top5.update(to_python_float(acc5), data.size(0))
+        losses.update(to_python_float(reduced_loss), images.size(0))
+        top1.update(to_python_float(acc1), images.size(0))
+        top5.update(to_python_float(acc5), images.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -128,11 +132,13 @@ def validate(val_loader, model, criterion, args):
                 'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                 'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                 'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                  iteration, len(val_loader),
+                  iteration, len(loader),
                   args.world_size * args.batch_size / batch_time.val,
                   args.world_size * args.batch_size / batch_time.avg,
                   batch_time=batch_time, loss=losses,
                   top1=top1, top5=top5))
+
+        images, target = fetcher.next()
 
     log(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
           .format(top1=top1, top5=top5))

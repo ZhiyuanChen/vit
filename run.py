@@ -55,8 +55,8 @@ def parse():
                         help='checkpoint to validate')
     parser.add_argument('-b', '--batch_size', default=12, type=int,
                         metavar='N', help='mini-batch size per process (default: 12)')
-    parser.add_argument('-w', '--workers', default=2, type=int, metavar='N',
-                        help='number of data loading workers (default: 2)')
+    parser.add_argument('-w', '--workers', default=16, type=int, metavar='N',
+                        help='number of data loading workers (default: 16)')
     parser.add_argument('-pf', '--print_freq', default=20, type=int,
                         metavar='N', help='print frequency (default: 20)')
 
@@ -99,7 +99,7 @@ def parse():
 if __name__ == '__main__':
     args = parse()
 
-    mode = 'train' if args.train else 'validate'
+    mode = 'validate' if args.validate else 'train'
     arguments = list()
 
     gpus, gres_gpu, ntasks_per_node = set_gpu(args.gpus)
@@ -107,7 +107,7 @@ if __name__ == '__main__':
         args.job_name, args.partition, gpus, gres_gpu, ntasks_per_node, mode)
 
     for k, v in vars(args).items():
-        if v is None or k in ('train', 'validate'):
+        if v is None or k in ('train', 'validate') or (args.profile < 0 and 'profile' in k):
             continue
         elif type(v) is bool:
             if v:
