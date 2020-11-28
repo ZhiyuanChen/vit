@@ -56,7 +56,11 @@ class DataLoader(object):
     def __preload(self):
         if self.profile >= 0:
             torch.cuda.nvtx.range_push("DataLoader.preload()")
-        self.next_data, self.next_target = next(self.iter)
+        try:
+            self.next_data, self.next_target = next(self.iter)
+        except StopIteration:
+            self.next_data, self.next_target = None, None
+            return
         with torch.cuda.stream(self.stream):
             self.next_data = self.next_data.cuda(non_blocking=True)
             self.next_target = self.next_target.cuda(non_blocking=True)
@@ -75,8 +79,11 @@ class DataLoader(object):
 
     def __next__(self):
         torch.cuda.current_stream().wait_stream(self.stream)
-        data = self.next_data
-        target = self.next_target
+        data, target = self.next_data, self.next_target
+        # StopIteration here to retain data in last batch
+        if data is None or target is None:
+            self.iter.seek(0)
+            raise StopIteration
         if data is not None:
             data.record_stream(torch.cuda.current_stream())
         if target is not None:
