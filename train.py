@@ -68,7 +68,7 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss().cuda()
 
-    traindir = os.path.join(args.data, 'val')
+    traindir = os.path.join(args.data, 'train')
     valdir = os.path.join(args.data, 'val')
 
     crop_size = 384
