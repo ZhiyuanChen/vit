@@ -143,50 +143,58 @@ class VisionTransformer(nn.Module):
         return x
 
 
-def s16(pretrained=False, **kwargs):
+def s16(pretrained=False, dropout=0., **kwargs):
     model = VisionTransformer(
+        dropout=dropout, attn_dropout=dropout,
         patches=16, hidden_size=768, num_layers=8, num_heads=8, mlp_ratio=3,
         **kwargs)
     return model
 
-def b16_224(pretrained=False, **kwargs):
+def b16_224(pretrained=False, dropout=0., **kwargs):
     model = VisionTransformer(
+        dropout=dropout, attn_dropout=dropout,
         img_size=224, patches=16, hidden_size=768, num_layers=12,
         num_heads=12, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def b16(pretrained=False, **kwargs):
+def b16(pretrained=False, dropout=0., **kwargs):
     model = VisionTransformer(
+        dropout=dropout, attn_dropout=dropout,
         img_size=384, patches=16, hidden_size=768, num_layers=12,
         num_heads=12, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def b32(pretrained=False, **kwargs):
+def b32(pretrained=False, dropout=0., **kwargs):
     model = VisionTransformer(
+        dropout=dropout, attn_dropout=dropout,
         img_size=384, patches=32, hidden_size=768, num_layers=12,
         num_heads=12, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def l16_224(pretrained=False, **kwargs):
+def l16_224(pretrained=False, dropout=0., **kwargs):
     model = VisionTransformer(
+        dropout=dropout, attn_dropout=dropout,
         img_size=224, patches=16, hidden_size=1024, num_layers=24,
         num_heads=16, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def l16(pretrained=False, **kwargs):
+def l16(pretrained=False, dropout=0., **kwargs):
     model = VisionTransformer(
+        dropout=dropout, attn_dropout=dropout,
         img_size=384, patches=16, hidden_size=1024, num_layers=24,
         num_heads=16, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def l32(pretrained=False, **kwargs):
+def l32(pretrained=False, dropout=0., **kwargs):
     model = VisionTransformer(
+        dropout=dropout, attn_dropout=dropout,
         img_size=384, patches=32, hidden_size=1024, num_layers=24,
         num_heads=16, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def h14(pretrained=False, **kwargs):
+def h14(pretrained=False, dropout=0., **kwargs):
     model = VisionTransformer(
+        dropout=dropout, attn_dropout=dropout,
         img_size=224, patches=14, hidden_size=1280, num_layers=32,
         num_heads=16, **kwargs)
     return model

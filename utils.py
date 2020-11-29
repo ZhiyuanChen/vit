@@ -1,4 +1,5 @@
 import os
+import math
 import shutil
 
 import torch
@@ -107,10 +108,12 @@ def accuracy(output, target, topk=(1,)):
     return res
 
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    torch.save(state, filename)
+def save_checkpoint(state, is_best, folder, filename='checkpoint.pth', bestname=None):
+    path = os.path.join(folder, filename)
+    torch.save(state, path)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        best = os.path.join(folder, bestname or f'{state["acc1"]}.pth')
+        shutil.copyfile(path, best)
 
 
 def reduce_tensor(tensor, world_size):
@@ -124,11 +127,70 @@ def reduce_tensors(*tensors, world_size):
     return [reduce_tensor(tensor, world_size) for tensor in tensors]
 
 
-class LRScheduler(torch.optim.lr_scheduler.OneCycleLR):
-    pass
+class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
+    def __init__(
+        self,
+        optimizer,
+        epochs,
+        strategy="cosine",
+        param=295,
+        warmup_epochs=5,
+        warmup_strategy="linear",
+        warmup_param=2,
+        last_epoch=-1,
+        min_lr=0
+    ):
+        if strategy not in ("constant", "cosine", "linear"):
+            raise ValueError(
+                "Only 'constant' or 'linear' warmup_method accepted"
+                "got {}".format(strategy)
+            )
+        self.last_epoch = last_epoch
+        self.epochs = epochs
+        self.strategy = strategy
+        self.param = param
+        self.warmup_epochs = warmup_epochs
+        self.warmup_strategy = warmup_strategy
+        self.warmup_param = warmup_param
+        self._scheduler =  self.warmup_scheduler
+        self.min_lr = min_lr
+        super(LRScheduler, self).__init__(optimizer, last_epoch)
 
+    def get_lr(self):
+        if self.last_epoch == 0:
+            return self.base_lrs
+        elif self.last_epoch < self.warmup_epochs:
+            return self._get_lr(self.warmup_strategy, self.warmup_param)
+        else:
+            return self._get_lr(self.strategy, self.param)
 
-def adjust_learning_rate(lr, optimizer, epoch, warmup_epoch, step, len_epoch):
+    def _get_lr(self, strategy, param):
+        getattr(self, strategy)(param)
+
+    def linear(self, gamma):
+        return [group['lr'] * gamma
+                for group in self.optimizer.param_groups]
+
+    def cosine(self, T_max):
+        if (self.last_epoch - 1 - T_max) % (2 * T_max) == 0:
+            return [group['lr'] + (base_lr - self.min_lr) *
+                    (1 - math.cos(math.pi / T_max)) / 2
+                    for base_lr, group in
+                    zip(self.base_lrs, self.optimizer.param_groups)]
+        return [(1 + math.cos(math.pi * self.last_epoch / T_max)) /
+                (1 + math.cos(math.pi * (self.last_epoch - 1) / T_max)) *
+                (group['lr'] - self.min_lr) + self.min_lr
+                for group in self.optimizer.param_groups]
+
+    def step(self):
+        if self.last_epoch >= self.warmup_epochs:
+            self._scheduler = self.scheduler
+        self.scheduler.step()
+
+    def state_dict(self):
+        return self._scheduler.state_dict()
+
+def adjust_learning_rate(lr, optimizer, epoch, warmup_epochs, step, len_epoch):
     """LR schedule that should yield 76% converged accuracy with batch size 256"""
     factor = epoch // 30
 
@@ -138,7 +200,7 @@ def adjust_learning_rate(lr, optimizer, epoch, warmup_epoch, step, len_epoch):
     lr = lr * (0.1**factor)
 
     """Warmup"""
-    if epoch < warmup_epoch:
+    if epoch < warmup_epochs:
         lr = lr * float(1 + step + epoch*len_epoch) / (5. * len_epoch)
 
     # if(args.local_rank == 0):

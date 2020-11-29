@@ -32,6 +32,10 @@ def parse():
     mode.add_argument('-t', '--train', action='store_true')
     mode.add_argument('-v', '--validate', action='store_true',
                       help='validate model on validation set')
+    parser.add_argument('-tb', '--tensorboard', action='store_true',
+                        help='use tensorboard')
+    parser.add_argument('-tbd', '--tensorboard_dir', default='tensorboard',
+                        type=str, help='directory of tensorboard results')
 
     parser.add_argument('--profile', default=-1, type=int,
                         help='Run a few iterations for profiling.')
@@ -50,30 +54,38 @@ def parse():
     parser.add_argument('-pt', '--pretrained', action='store_true',
                         help='use pre-trained model')
     parser.add_argument('-c', '--checkpoint',
-                        default='checkpoints/21kl16.pth',
+                        default='/mnt/lustre/chenzhiyuan1/pyvit/checkpoints/21kl16.pth',
                         type=str,
                         help='checkpoint to validate')
+    parser.add_argument('-r', '--resume', default=None, type=str, metavar='PATH',
+                        help='path to latest checkpoint (default: None)')
     parser.add_argument('-b', '--batch_size', default=12, type=int,
                         metavar='N', help='mini-batch size per process (default: 12)')
     parser.add_argument('-w', '--workers', default=16, type=int, metavar='N',
                         help='number of data loading workers (default: 16)')
-    parser.add_argument('-pf', '--print_freq', default=20, type=int,
-                        metavar='N', help='print frequency (default: 20)')
+    parser.add_argument('-pf', '--print_freq', default=100, type=int,
+                        metavar='N', help='print frequency (default: 100)')
+    parser.add_argument('-sf', '--save_freq', default=10, type=int,
+                        metavar='N', help='save frequency (default: 10)')
+    parser.add_argument('-sd', '--save_dir', default='checkpoints',
+                        type=str, help='directory of saved_checkpoints')
 
     parser.add_argument('-e', '--epochs', default=200, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('-se', '--start_epoch', default=0, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')
-    parser.add_argument('-we', '--warmup_epoch', default=5, type=int, metavar='N',
-                        help='number of warm up epochs to run')
     parser.add_argument('--lr', '--learning_rate', default=0.01, type=float,
                         metavar='LR', help='Initial learning rate.  Will be scaled by <global batch size>/256: args.lr = args.lr*float(args.batch_size*args.world_size)/256.  A warmup schedule will also be applied over the first 5 epochs.')
-    parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
+    parser.add_argument('-m', '--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')
     parser.add_argument('-wd', '--weight_decay', default=1e-4, type=float,
                         metavar='W', help='weight decay (default: 1e-4)')
-    parser.add_argument('-r', '--resume', default=None, type=str, metavar='PATH',
-                        help='path to latest checkpoint (default: None)')
+    parser.add_argument('-s', '--strategy', default='cosine', type=str,
+                        help='learning rate scaling strategy')
+    parser.add_argument('-we', '--warmup_epochs', default=5, type=int, metavar='N',
+                        help='number of warm up epochs to run')
+    parser.add_argument('-ws', '--warmup_strategy', default='linear', type=str,
+                        help='learning rate scaling strategy')
     parser.add_argument('--deterministic', action='store_true')
 
     parser.add_argument("--local_rank", default=0, type=int)

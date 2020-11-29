@@ -3,15 +3,9 @@ import time
 
 import torch
 import torch.nn as nn
-import torch.nn.parallel
-import torch.backends.cudnn as cudnn
-import torch.optim
-import torch.utils.data
-import torch.utils.data.distributed
-import torchvision.transforms as transforms
 
-import numpy as np
-import subprocess
+from torchvision import transforms
+from torch.utils.tensorboard import SummaryWriter
 
 try:
     from apex.parallel import DistributedDataParallel as DDP
@@ -30,7 +24,9 @@ from run import parse
 
 
 def main(args):
-    global best_acc1
+    global experiment, writer, best_acc1
+    experiment = f'{args.arch}-{args.lr}-{args.momentum}-{args.weight_decay}'
+    writer = SummaryWriter(log_dir=args.tensorboard_dir, comment = experiment)
     best_acc1 = 0
     init(args)
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
@@ -97,8 +93,9 @@ def validate(loader, model, criterion, args):
     end = time.time()
 
     iteration = 0
+    # It is crucial to build a new fetcher at each epoch
     fetcher = data.DataFetcher(loader)
-    images, target = fetcher.next()
+    images, target = next(fetcher)
 
     while images is not None:
         iteration += 1
@@ -124,11 +121,16 @@ def validate(loader, model, criterion, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
+        if args.tensorbaord:
+            writer.add_scalar('val/loss', losses, iteration)
+            writer.add_scalar('val/acc1', top1, iteration)
+            writer.add_scalar('val/acc5', top5, iteration)
+
         # TODO:  Change timings to mirror train().
         if iteration % args.print_freq == 0:
             log('Test: [{0}/{1}]\t'
-                'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                'Speed {2:.3f} ({3:.3f})\t'
+                'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
+                # 'Speed {2:.3f} ({3:.3f})\t'
                 'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                 'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                 'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
@@ -138,7 +140,7 @@ def validate(loader, model, criterion, args):
                   batch_time=batch_time, loss=losses,
                   top1=top1, top5=top5))
 
-        images, target = fetcher.next()
+        images, target = next(fetcher)
 
     log(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
           .format(top1=top1, top5=top5))

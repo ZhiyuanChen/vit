@@ -3,11 +3,9 @@ import time
 
 import torch
 import torch.nn as nn
-import torch.nn.parallel
-import torch.optim
-import torch.utils.data
-import torch.utils.data.distributed
-import torchvision.transforms as transforms
+
+from torchvision import transforms
+from torch.utils.tensorboard import SummaryWriter
 
 try:
     from apex.parallel import DistributedDataParallel as DDP
@@ -27,7 +25,10 @@ from run import parse
 
 
 def main(args):
-    global best_acc1
+    global experiment, writer, best_acc1
+    experiment = f'{args.arch}-lr{args.lr}-m{args.momentum}-wd{args.weight_decay}' + \
+                 f'-wu{args.warmup_epochs}'
+    writer = SummaryWriter(log_dir=args.tensorboard_dir, comment = experiment)
     best_acc1 = 0
     init(args)
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
@@ -55,7 +56,7 @@ def main(args):
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
-    # scheduler = LRScheduler(optimizer)
+    scheduler = LRScheduler(optimizer)
 
     model, optimizer = amp.initialize(
         model, optimizer, opt_level=args.opt_level,
@@ -97,23 +98,33 @@ def main(args):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
-        train(train_loader, model, criterion, optimizer, epoch, args.warmup_epoch, args)
+        train(train_loader, model, criterion, optimizer, scheduler, epoch, args)
 
         acc1 = validate(val_loader, model, criterion, args)
 
         if args.local_rank == 0:
             is_best = acc1 > best_acc1
             best_acc1 = max(acc1, best_acc1)
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'arch': args.arch,
-                'state_dict': model.state_dict(),
-                'best_acc1': best_acc1,
-                'optimizer' : optimizer.state_dict(),
-            }, is_best)
+            if is_best:
+                torch.save({
+                    'epoch': epoch,
+                    'arch': args.arch,
+                    'state_dict': model.state_dict(),
+                    'acc1': acc1,
+                    'optimizer' : optimizer.state_dict(),
+                    'scheduler' : scheduler.state_dict(),
+                }, os.path.join(experiment, f'{args.save_dir}/{acc1}.pth'))
+            elif epoch % args.save_freq == 0:
+                torch.save({
+                    'epoch': epoch,
+                    'arch': args.arch,
+                    'state_dict': model.state_dict(),
+                    'acc1': acc1,
+                    'optimizer' : optimizer.state_dict(),
+                    'scheduler' : scheduler.state_dict(),
+                }, os.path.join(experiment, f'{args.save_dir}/epoch_{epoch}.pth'))
 
-
-def train(loader, model, criterion, optimizer, epoch, warmup_epoch, args):
+def train(loader, model, criterion, optimizer, scheduler, epoch, args):
     log('training {}'.format(epoch))
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -125,7 +136,7 @@ def train(loader, model, criterion, optimizer, epoch, warmup_epoch, args):
 
     iteration = 0
     fetcher = data.DataFetcher(loader)
-    images, target = fetcher.next()
+    images, target = next(fetcher)
 
     while images is not None:
         iteration += 1
@@ -133,7 +144,6 @@ def train(loader, model, criterion, optimizer, epoch, warmup_epoch, args):
             log("Profiling begun at iteration {}".format(iteration))
             torch.cuda.cudart().cudaProfilerStart()
         if args.profile >= 0: torch.cuda.nvtx.range_push("Body of iteration {}".format(iteration))
-        adjust_learning_rate(args.lr, optimizer, epoch, warmup_epoch, iteration, len(loader))
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("forward")
         output = model(images)
@@ -151,6 +161,10 @@ def train(loader, model, criterion, optimizer, epoch, warmup_epoch, args):
         optimizer.step()
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
+        if args.profile >= 0: torch.cuda.nvtx.range_push("optimizer.step()")
+        scheduler.step()
+        if args.profile >= 0: torch.cuda.nvtx.range_pop()
+
         if iteration % args.print_freq == 0:
             # measure accuracy
             acc1, acc5 = accuracy(output.data, target, topk=(1, 5))
@@ -165,26 +179,34 @@ def train(loader, model, criterion, optimizer, epoch, warmup_epoch, args):
             losses.update(to_python_float(reduced_loss), images.size(0))
             top1.update(to_python_float(acc1), images.size(0))
             top5.update(to_python_float(acc5), images.size(0))
+            lr = optimizer.param_groups[0]['lr']
 
             # measure elapsed time
             torch.cuda.synchronize()
             batch_time.update((time.time() - end) / args.print_freq)
             end = time.time()
 
+            if args.tensorbaord:
+                total_iter = iteration + iteration * epoch
+                writer.add_scalar('train/loss', losses, total_iter)
+                writer.add_scalar('train/acc1', top1, total_iter)
+                writer.add_scalar('train/acc5', top5, total_iter)
+
             log('Epoch: [{0}][{1}/{2}]\t'
-                'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                'Speed {3:.3f} ({4:.3f})\t'
-                'Loss {loss.val:.10f} ({loss.avg:.4f})\t'
+                'LR {lr:.4f}\t'
+                'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
+                # 'Speed {3:.3f} ({4:.3f})\t'
+                'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                 'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                 'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
                     epoch, iteration, len(loader),
-                    args.world_size*args.batch_size/batch_time.val,
-                    args.world_size*args.batch_size/batch_time.avg,
-                    batch_time=batch_time,
+                    # args.world_size*args.batch_size/batch_time.val,
+                    # args.world_size*args.batch_size/batch_time.avg,
+                    lr=lr, batch_time=batch_time,
                     loss=losses, top1=top1, top5=top5))
 
-        if args.profile >= 0: torch.cuda.nvtx.range_push("fetcher.next()")
-        images, target = fetcher.next()
+        if args.profile >= 0: torch.cuda.nvtx.range_push("next(fetcher)")
+        images, target = next(fetcher)
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
