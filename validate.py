@@ -113,18 +113,18 @@ def validate(loader, model, criterion, args):
                 reduced_loss, acc1, acc5, world_size=args.world_size)
 
         # to_python_float incurs a host<->device sync
-        losses.update(to_python_float(reduced_loss), images.size(0))
-        top1.update(to_python_float(acc1), images.size(0))
-        top5.update(to_python_float(acc5), images.size(0))
+        losses.update(data.to_python_float(reduced_loss), images.size(0))
+        top1.update(data.to_python_float(acc1), images.size(0))
+        top5.update(data.to_python_float(acc5), images.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if args.tensorbaord:
-            writer.add_scalar('val/loss', losses, iteration)
-            writer.add_scalar('val/acc1', top1, iteration)
-            writer.add_scalar('val/acc5', top5, iteration)
+        if args.tensorboard:
+            writer.add_scalar('val/loss', losses.val, iteration)
+            writer.add_scalar('val/acc1', top1.val, iteration)
+            writer.add_scalar('val/acc5', top5.val, iteration)
 
         # TODO:  Change timings to mirror train().
         if iteration % args.print_freq == 0:

@@ -189,9 +189,9 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args):
                     reduced_loss, acc1, acc5, world_size=args.world_size)
 
             # to_python_float incurs a host<->device sync
-            losses.update(to_python_float(reduced_loss), images.size(0))
-            top1.update(to_python_float(acc1), images.size(0))
-            top5.update(to_python_float(acc5), images.size(0))
+            losses.update(data.to_python_float(reduced_loss), images.size(0))
+            top1.update(data.to_python_float(acc1), images.size(0))
+            top5.update(data.to_python_float(acc5), images.size(0))
 
             # measure elapsed time
             torch.cuda.synchronize()
