@@ -82,10 +82,14 @@ def parse():
                         metavar='W', help='weight decay (default: 1e-4)')
     parser.add_argument('-s', '--strategy', default='cosine', type=str,
                         help='learning rate scaling strategy')
+    parser.add_argument('-p', '--param', default=295, type=int, metavar='O',
+                        help='learng rate scaling parameters')
     parser.add_argument('-we', '--warmup_epochs', default=5, type=int, metavar='N',
                         help='number of warm up epochs to run')
     parser.add_argument('-ws', '--warmup_strategy', default='linear', type=str,
                         help='learning rate scaling strategy')
+    parser.add_argument('-wp', '--warmup_param', default=2, type=int, metavar='O',
+                        help='learng rate scaling parameters')
     parser.add_argument('--deterministic', action='store_true')
 
     parser.add_argument("--local_rank", default=0, type=int)

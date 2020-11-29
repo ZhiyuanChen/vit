@@ -56,7 +56,10 @@ def main(args):
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
-    scheduler = LRScheduler(optimizer)
+    scheduler = LRScheduler(
+        optimizer, epochs=args.epochs, strategy=args.strategy, param=args.param,
+        warmup_epochs=args.warmup_epochs, warmup_strategy=args.warmup_strategy,
+        warmup_param=args.warmup_param)
 
     model, optimizer = amp.initialize(
         model, optimizer, opt_level=args.opt_level,
