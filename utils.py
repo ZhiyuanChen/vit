@@ -152,7 +152,6 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
         self.warmup_epochs = warmup_epochs
         self.warmup_strategy = warmup_strategy
         self.warmup_param = warmup_param
-        self._scheduler =  self.warmup_scheduler
         self.min_lr = min_lr
         super(LRScheduler, self).__init__(optimizer, last_epoch)
 
@@ -165,7 +164,7 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
             return self._get_lr(self.strategy, self.param)
 
     def _get_lr(self, strategy, param):
-        getattr(self, strategy)(param)
+        return getattr(self, strategy)(param)
 
     def linear(self, gamma):
         return [group['lr'] * gamma
@@ -181,11 +180,6 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
                 (1 + math.cos(math.pi * (self.last_epoch - 1) / T_max)) *
                 (group['lr'] - self.min_lr) + self.min_lr
                 for group in self.optimizer.param_groups]
-
-    def step(self):
-        if self.last_epoch >= self.warmup_epochs:
-            self._scheduler = self.scheduler
-        self.scheduler.step()
 
     def state_dict(self):
         return self._scheduler.state_dict()

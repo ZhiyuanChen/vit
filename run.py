@@ -80,9 +80,9 @@ def parse():
                         help='momentum')
     parser.add_argument('-wd', '--weight_decay', default=1e-4, type=float,
                         metavar='W', help='weight decay (default: 1e-4)')
-    parser.add_argument('-s', '--strategy', default='cosine', type=str,
+    parser.add_argument('-ls', '--strategy', default='cosine', type=str,
                         help='learning rate scaling strategy')
-    parser.add_argument('-p', '--param', default=295, type=int, metavar='O',
+    parser.add_argument('-lp', '--param', default=295, type=int, metavar='O',
                         help='learng rate scaling parameters')
     parser.add_argument('-we', '--warmup_epochs', default=5, type=int, metavar='N',
                         help='number of warm up epochs to run')
@@ -107,7 +107,7 @@ def parse():
     parser.add_argument('-x', '--exclude', nargs='+', default=None)
     parser.add_argument('-g', '--gpus', default=8, type=int)
 
-    parser.set_defaults(train=True, slurm=True)
+    parser.set_defaults(train=True, tensorboard=True, slurm=True)
     args, unknown = parser.parse_known_args()
     return args
 

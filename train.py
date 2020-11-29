@@ -25,12 +25,20 @@ from run import parse
 
 
 def main(args):
-    global experiment, writer, best_acc1
-    experiment = f'{args.arch}-lr{args.lr}-m{args.momentum}-wd{args.weight_decay}' + \
-                 f'-wu{args.warmup_epochs}'
-    writer = SummaryWriter(log_dir=args.tensorboard_dir, comment = experiment)
+    global best_acc1, writer
     best_acc1 = 0
     init(args)
+    if args.local_rank == 0:
+        experiment = f'experiments/{args.arch}-lr{args.lr}' + \
+                     f'-s{args.strategy}-p{args.param}' + \
+                     f'-m{args.momentum}-wd{args.weight_decay}' + \
+                     f'-wu{args.warmup_epochs}-wp{args.warmup_param}'
+        save_dir = os.path.join(experiment, args.save_dir)
+        os.makedirs(save_dir, exist_ok=True)
+        if args.tensorboard:
+            tensorboard_dir = os.path.join(experiment, args.tensorboard_dir)
+            os.makedirs(tensorboard_dir, exist_ok=True)
+            writer = SummaryWriter(log_dir=tensorboard_dir)
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
     log("creating model '{}'".format(args.arch))
@@ -100,6 +108,8 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
+        lr = optimizer.param_groups[0]['lr']
+        log(f'current learning rate: {lr}')
 
         train(train_loader, model, criterion, optimizer, scheduler, epoch, args)
 
@@ -116,7 +126,7 @@ def main(args):
                     'acc1': acc1,
                     'optimizer' : optimizer.state_dict(),
                     'scheduler' : scheduler.state_dict(),
-                }, os.path.join(experiment, f'{args.save_dir}/{acc1}.pth'))
+                }, os.path.join(save_dir, f'{acc1}.pth'))
             elif epoch % args.save_freq == 0:
                 torch.save({
                     'epoch': epoch,
@@ -125,7 +135,7 @@ def main(args):
                     'acc1': acc1,
                     'optimizer' : optimizer.state_dict(),
                     'scheduler' : scheduler.state_dict(),
-                }, os.path.join(experiment, f'{args.save_dir}/epoch_{epoch}.pth'))
+                }, os.path.join(save_dir, f'epoch_{epoch}.pth'))
 
 def train(loader, model, criterion, optimizer, scheduler, epoch, args):
     log('training {}'.format(epoch))
@@ -182,21 +192,19 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args):
             losses.update(to_python_float(reduced_loss), images.size(0))
             top1.update(to_python_float(acc1), images.size(0))
             top5.update(to_python_float(acc5), images.size(0))
-            lr = optimizer.param_groups[0]['lr']
 
             # measure elapsed time
             torch.cuda.synchronize()
             batch_time.update((time.time() - end) / args.print_freq)
             end = time.time()
 
-            if args.tensorbaord:
+            if args.tensorboard and args.local_rank == 0:
                 total_iter = iteration + iteration * epoch
-                writer.add_scalar('train/loss', losses, total_iter)
-                writer.add_scalar('train/acc1', top1, total_iter)
-                writer.add_scalar('train/acc5', top5, total_iter)
+                writer.add_scalar('train/loss', losses.val, total_iter)
+                writer.add_scalar('train/acc1', top1.val, total_iter)
+                writer.add_scalar('train/acc5', top5.val, total_iter)
 
             log('Epoch: [{0}][{1}/{2}]\t'
-                'LR {lr:.4f}\t'
                 'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
                 # 'Speed {3:.3f} ({4:.3f})\t'
                 'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
@@ -205,7 +213,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args):
                     epoch, iteration, len(loader),
                     # args.world_size*args.batch_size/batch_time.val,
                     # args.world_size*args.batch_size/batch_time.avg,
-                    lr=lr, batch_time=batch_time,
+                    batch_time=batch_time,
                     loss=losses, top1=top1, top5=top5))
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("next(fetcher)")
