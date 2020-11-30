@@ -50,15 +50,15 @@ class Attention(nn.Module):
 
 class Encoder1DBlock(nn.Module):
     def __init__(self, hidden_size, num_heads, mlp_ratio=4, attn_bias=True,
-                 attn_scale=None, drop=0., in_dropout=0., norm_layer=nn.LayerNorm):
+                 attn_scale=None, in_dropout=0., out_dropout=0., norm_layer=nn.LayerNorm):
         super().__init__()
         self.norm1 = norm_layer(hidden_size)
         self.attention = Attention(
             hidden_size, num_heads=num_heads, attn_bias=attn_bias,
-            attn_scale=attn_scale, in_dropout=in_dropout, out_dropout=drop)
+            attn_scale=attn_scale, in_dropout=in_dropout, out_dropout=out_dropout)
         self.norm2 = norm_layer(hidden_size)
         mlp_dim = int(hidden_size * mlp_ratio)
-        self.mlp = MLPBlock(in_channels=hidden_size, hidden_channels=mlp_dim, dropout=drop)
+        self.mlp = MLPBlock(in_channels=hidden_size, hidden_channels=mlp_dim, dropout=out_dropout)
 
     def forward(self, x):
         x = x + self.attention(self.norm1(x))
@@ -80,8 +80,8 @@ class Encoder(nn.Module):
             *[Encoder1DBlock(
                 hidden_size=hidden_size, num_heads=num_heads,
                 mlp_ratio=mlp_ratio, attn_bias=attn_bias,
-                attn_scale=attn_scale, drop=dropout,
-                in_dropout=attn_dropout, norm_layer=norm_layer
+                attn_scale=attn_scale, in_dropout=attn_dropout,
+                out_dropout=attn_dropout, norm_layer=norm_layer
             ) for _ in range(num_layers)]
         )
         self.norm = norm_layer(hidden_size)
@@ -143,58 +143,50 @@ class VisionTransformer(nn.Module):
         return x
 
 
-def s16(pretrained=False, dropout=0., **kwargs):
+def s16(pretrained=False, **kwargs):
     model = VisionTransformer(
-        dropout=dropout, attn_dropout=dropout,
         patches=16, hidden_size=768, num_layers=8, num_heads=8, mlp_ratio=3,
         **kwargs)
     return model
 
-def b16_224(pretrained=False, dropout=0., **kwargs):
+def b16_224(pretrained=False, **kwargs):
     model = VisionTransformer(
-        dropout=dropout, attn_dropout=dropout,
         img_size=224, patches=16, hidden_size=768, num_layers=12,
         num_heads=12, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def b16(pretrained=False, dropout=0., **kwargs):
+def b16(pretrained=False, **kwargs):
     model = VisionTransformer(
-        dropout=dropout, attn_dropout=dropout,
         img_size=384, patches=16, hidden_size=768, num_layers=12,
         num_heads=12, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def b32(pretrained=False, dropout=0., **kwargs):
+def b32(pretrained=False, **kwargs):
     model = VisionTransformer(
-        dropout=dropout, attn_dropout=dropout,
         img_size=384, patches=32, hidden_size=768, num_layers=12,
         num_heads=12, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def l16_224(pretrained=False, dropout=0., **kwargs):
+def l16_224(pretrained=False, **kwargs):
     model = VisionTransformer(
-        dropout=dropout, attn_dropout=dropout,
         img_size=224, patches=16, hidden_size=1024, num_layers=24,
         num_heads=16, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def l16(pretrained=False, dropout=0., **kwargs):
+def l16(pretrained=False, **kwargs):
     model = VisionTransformer(
-        dropout=dropout, attn_dropout=dropout,
         img_size=384, patches=16, hidden_size=1024, num_layers=24,
         num_heads=16, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def l32(pretrained=False, dropout=0., **kwargs):
+def l32(pretrained=False, **kwargs):
     model = VisionTransformer(
-        dropout=dropout, attn_dropout=dropout,
         img_size=384, patches=32, hidden_size=1024, num_layers=24,
         num_heads=16, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-def h14(pretrained=False, dropout=0., **kwargs):
+def h14(pretrained=False, **kwargs):
     model = VisionTransformer(
-        dropout=dropout, attn_dropout=dropout,
         img_size=224, patches=14, hidden_size=1280, num_layers=32,
         num_heads=16, **kwargs)
     return model

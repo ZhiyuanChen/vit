@@ -78,6 +78,8 @@ def parse():
                         help='momentum')
     parser.add_argument('-do', '--dropout', default=0.1, type=float, metavar='M',
                         help='drop out rate')
+    parser.add_argument('-ado', '--attn_dropout', default=0.0, type=float, metavar='M',
+                        help='drop out rate for attention')
     parser.add_argument('-lr', '--learning_rate', default=0.01, type=float,
                         metavar='LR', help='base learning rate, scaled by total batch size / 4096')
     parser.add_argument('-m', '--momentum', default=0.9, type=float, metavar='M',
