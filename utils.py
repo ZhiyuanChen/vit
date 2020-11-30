@@ -205,9 +205,6 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
                 (group['lr'] - self.min_lr) + self.min_lr
                 for group in self.optimizer.param_groups]
 
-    def state_dict(self):
-        return self._scheduler.state_dict()
-
 def adjust_learning_rate(lr, optimizer, epoch, warmup_steps, step, len_epoch):
     """LR schedule that should yield 76% converged accuracy with batch size 256"""
     factor = epoch // 30
