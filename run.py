@@ -125,6 +125,9 @@ if __name__ == '__main__':
         args.train = True
     mode = 'train' if args.train else 'validate'
 
+    if args.warmup_steps == 0:
+        args.warmup_lr = args.learning_rate
+
     arguments = list()
 
     gpus, gres_gpu, ntasks_per_node = set_gpu(args.gpus)
