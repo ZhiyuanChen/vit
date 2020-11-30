@@ -168,6 +168,7 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
         self.final_lr = final_lr
         self.strategy = strategy
         self.warmup_steps = warmup_steps
+        print(self.warmup_steps)
 
     def get_lr(self):
         progress = (self._step_count - self.warmup_steps) / float(self.steps - self.warmup_steps)
@@ -182,22 +183,3 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
 
     def cosine(self, progress):
         return 0.5 * (1. + np.cos(np.pi * progress))
-
-def adjust_lr(lr, optimizer, epoch, warmup_steps, step, len_epoch):
-    """LR schedule that should yield 76% converged accuracy with batch size 256"""
-    factor = epoch // 30
-
-    if epoch >= 80:
-        factor = factor + 1
-
-    lr = lr * (0.1**factor)
-
-    """Warmup"""
-    if epoch < warmup_steps:
-        lr = lr * float(1 + step + epoch*len_epoch) / (5. * len_epoch)
-
-    # if(args.local_rank == 0):
-    #     print("epoch = {}, step = {}, lr = {}".format(epoch, step, lr))
-
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
