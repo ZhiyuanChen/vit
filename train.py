@@ -42,6 +42,7 @@ def main(args):
     del checkpoint['head.weight']
     del checkpoint['head.bias']
     model.load_state_dict(checkpoint, strict=False)
+    log(model)
 
     if args.resume:
         resume(model, args.resume)
@@ -108,7 +109,7 @@ def main(args):
 
         acc1 = validate(val_loader, model, criterion, writer, args)
 
-        if args.local_rank == 0:
+        if int(os.environ['SLURM_PROCID']) == 0:
             is_best = acc1 > best_acc1
             best_acc1 = max(acc1, best_acc1)
             if is_best:
