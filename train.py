@@ -25,24 +25,17 @@ from run import parse
 
 
 def main(args):
-    global best_acc1, writer
-    best_acc1 = 0
-    init(args)
-    if args.local_rank == 0:
-        experiment = f'experiments/{args.arch}-lr{args.lr}' + \
-                     f'-s{args.strategy}-p{args.param}' + \
-                     f'-m{args.momentum}-wd{args.weight_decay}' + \
-                     f'-wu{args.warmup_epochs}-wp{args.warmup_param}'
-        save_dir = os.path.join(experiment, args.save_dir)
-        os.makedirs(save_dir, exist_ok=True)
-        if args.tensorboard:
-            tensorboard_dir = os.path.join(experiment, args.tensorboard_dir)
-            os.makedirs(tensorboard_dir, exist_ok=True)
-            writer = SummaryWriter(log_dir=tensorboard_dir)
+    global best_acc1, writer, save_dir
+    best_acc1, writer, save_dir = 0, None, None
+    _experiment, _writer, _save_dir = init(args)
+    if _writer is not None:
+        writer = _writer
+    if _save_dir is not None:
+        save_dir = _save_dir
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
     log("creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=args.pretrained)
+    model = models.__dict__[args.arch](**vars(args))
 
     checkpoint = torch.load(args.checkpoint)
     del checkpoint['encoder.pos_embed']
@@ -60,14 +53,14 @@ def main(args):
 
     model = model.cuda().to(memory_format=memory_format)
 
-    args.lr = args.lr * float(args.batch_size*args.world_size) / 256.
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
+    args.learning_rate = args.learning_rate * float(args.batch_size*args.world_size) / 4096.
+    optimizer = torch.optim.SGD(model.parameters(), 0,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
     scheduler = LRScheduler(
-        optimizer, epochs=args.epochs, strategy=args.strategy, param=args.param,
-        warmup_epochs=args.warmup_epochs, warmup_strategy=args.warmup_strategy,
-        warmup_param=args.warmup_param)
+        optimizer, epochs=args.epochs, strategy=args.strategy,
+        lr=args.learning_rate, param=args.param,
+        warmup_steps=args.warmup_steps, warmup_begin_lr=args.warmup_lr)
 
     model, optimizer = amp.initialize(
         model, optimizer, opt_level=args.opt_level,
@@ -108,12 +101,10 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
-        lr = optimizer.param_groups[0]['lr']
-        log(f'current learning rate: {lr}')
 
-        train(train_loader, model, criterion, optimizer, scheduler, epoch, args)
+        train(train_loader, model, criterion, optimizer, scheduler, writer, epoch, args)
 
-        acc1 = validate(val_loader, model, criterion, args)
+        acc1 = validate(val_loader, model, criterion, writer, args)
 
         if args.local_rank == 0:
             is_best = acc1 > best_acc1
@@ -137,7 +128,7 @@ def main(args):
                     'scheduler' : scheduler.state_dict(),
                 }, os.path.join(save_dir, f'epoch_{epoch}.pth'))
 
-def train(loader, model, criterion, optimizer, scheduler, epoch, args):
+def train(loader, model, criterion, optimizer, scheduler, writer, epoch, args):
     log('training {}'.format(epoch))
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -170,6 +161,9 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args):
             scaled_loss.backward()
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
+        if args.gradient_clip:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.gradient_clip)
+
         if args.profile >= 0: torch.cuda.nvtx.range_push("optimizer.step()")
         optimizer.step()
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
@@ -192,6 +186,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args):
             losses.update(data.to_python_float(reduced_loss), images.size(0))
             top1.update(data.to_python_float(acc1), images.size(0))
             top5.update(data.to_python_float(acc5), images.size(0))
+            lr = optimizer.param_groups[0]['lr'] * 1000
 
             # measure elapsed time
             torch.cuda.synchronize()
@@ -205,6 +200,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args):
                 writer.add_scalar('train/acc5', top5.val, total_iter)
 
             log('Epoch: [{0}][{1}/{2}]\t'
+                'LR {lr:.4f}\t'
                 'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
                 # 'Speed {3:.3f} ({4:.3f})\t'
                 'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
@@ -213,7 +209,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args):
                     epoch, iteration, len(loader),
                     # args.world_size*args.batch_size/batch_time.val,
                     # args.world_size*args.batch_size/batch_time.avg,
-                    batch_time=batch_time,
+                    lr=lr, batch_time=batch_time,
                     loss=losses, top1=top1, top5=top5))
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("next(fetcher)")

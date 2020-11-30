@@ -24,15 +24,15 @@ from run import parse
 
 
 def main(args):
-    global experiment, writer, best_acc1
-    experiment = f'{args.arch}-{args.lr}-{args.momentum}-{args.weight_decay}'
-    writer = SummaryWriter(log_dir=args.tensorboard_dir, comment = experiment)
-    best_acc1 = 0
-    init(args)
+    global best_acc1, writer
+    best_acc1, writer = 0, None
+    _experiment, _writer, _save_dir = init(args)
+    if _writer is not None:
+        writer = _writer
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
     log("creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=args.pretrained)
+    model = models.__dict__[args.arch](**args)
 
     checkpoint = torch.load(args.checkpoint)
     model.load_state_dict(checkpoint)
@@ -47,10 +47,7 @@ def main(args):
 
     model = model.cuda().to(memory_format=memory_format)
 
-    args.lr = args.lr * float(args.batch_size*args.world_size) / 256.
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
+    optimizer = torch.optim.SGD(model.parameters(), 0)
 
     model, optimizer = amp.initialize(
         model, optimizer, opt_level=args.opt_level,
@@ -82,7 +79,7 @@ def main(args):
     validate(val_loader, model, criterion, args)
 
 
-def validate(loader, model, criterion, args):
+def validate(loader, model, criterion, writer, args):
     log('evaluating')
     batch_time = AverageMeter()
     losses = AverageMeter()

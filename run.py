@@ -36,6 +36,8 @@ def parse():
                         help='use tensorboard')
     parser.add_argument('-tbd', '--tensorboard_dir', default='tensorboard',
                         type=str, help='directory of tensorboard results')
+    parser.add_argument('-ex', '--experiments', default='experiments',
+                        type=str, help='directory of results')
 
     parser.add_argument('--profile', default=-1, type=int,
                         help='Run a few iterations for profiling.')
@@ -74,22 +76,24 @@ def parse():
                         help='number of total epochs to run')
     parser.add_argument('-se', '--start_epoch', default=0, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')
-    parser.add_argument('--lr', '--learning_rate', default=0.01, type=float,
-                        metavar='LR', help='Initial learning rate.  Will be scaled by <global batch size>/256: args.lr = args.lr*float(args.batch_size*args.world_size)/256.  A warmup schedule will also be applied over the first 5 epochs.')
+    parser.add_argument('-gc', '--gradient_clip', default=1, type=float, metavar='M',
+                        help='momentum')
+    parser.add_argument('-do', '--dropout', default=0.1, type=float, metavar='M',
+                        help='drop out rate')
+    parser.add_argument('-lr', '--learning_rate', default=0.01, type=float,
+                        metavar='LR', help='base learning rate, scaled by total batch size / 4096')
     parser.add_argument('-m', '--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')
-    parser.add_argument('-wd', '--weight_decay', default=1e-4, type=float,
-                        metavar='W', help='weight decay (default: 1e-4)')
+    parser.add_argument('-wd', '--weight_decay', default=0.3, type=float,
+                        metavar='W', help='weight decay (default: 0.3)')
     parser.add_argument('-ls', '--strategy', default='cosine', type=str,
                         help='learning rate scaling strategy')
     parser.add_argument('-lp', '--param', default=295, type=int, metavar='O',
                         help='learng rate scaling parameters')
-    parser.add_argument('-we', '--warmup_epochs', default=5, type=int, metavar='N',
+    parser.add_argument('-ws', '--warmup_steps', default=10_000, type=int, metavar='N',
                         help='number of warm up epochs to run')
-    parser.add_argument('-ws', '--warmup_strategy', default='linear', type=str,
-                        help='learning rate scaling strategy')
-    parser.add_argument('-wp', '--warmup_param', default=2, type=int, metavar='O',
-                        help='learng rate scaling parameters')
+    parser.add_argument('-wl', '--warmup_lr', default=0.0, type=float,
+                        help='warm up learning rate')
     parser.add_argument('--deterministic', action='store_true')
 
     parser.add_argument("--local_rank", default=0, type=int)
@@ -115,7 +119,10 @@ def parse():
 if __name__ == '__main__':
     args = parse()
 
-    mode = 'validate' if args.validate else 'train'
+    if (not args.train) and (not args.validate):
+        args.train = True
+    mode = 'train' if args.train else 'validate'
+
     arguments = list()
 
     gpus, gres_gpu, ntasks_per_node = set_gpu(args.gpus)

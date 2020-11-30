@@ -6,6 +6,9 @@ import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
+
+from torch.utils.tensorboard import SummaryWriter
+
 import subprocess
 
 
@@ -29,7 +32,6 @@ def init(args):
         os.environ['RANK'] = str(proc_id)
         os.environ['LOCAL_RANK'] = str(local_rank)
         args.local_rank = local_rank
-        
 
     log("opt_level = {}".format(args.opt_level))
     log("keep_batchnorm_fp32 = {} {}".format(args.keep_batchnorm_fp32, type(args.keep_batchnorm_fp32)))
@@ -58,6 +60,24 @@ def init(args):
         args.world_size = torch.distributed.get_world_size()
 
     assert torch.backends.cudnn.enabled, "Amp requires cudnn backend to be enabled."
+
+    experiment, writer, save_dir = None, None, None
+    if proc_id == 0:
+        experiment = os.path.join(
+            args.experiments, 
+            f'{args.arch}-g{args.gpus}-b{args.batch_size}-d{args.dropout}' + \
+            f'-gc{args.gradient_clip}-lr{args.learning_rate}-m{args.momentum}' + \
+            f'-wd{args.weight_decay}-{args.strategy}{args.param}' + \
+            f'-wu{args.warmup_steps}'
+            )
+        if args.tensorboard:
+            tensorboard_dir = os.path.join(experiment, args.tensorboard_dir)
+            os.makedirs(tensorboard_dir, exist_ok=True)
+            writer = SummaryWriter(log_dir=tensorboard_dir)
+        if args.train:
+            save_dir = os.path.join(experiment, args.save_dir)
+            os.makedirs(save_dir, exist_ok=True)
+    return experiment, writer, save_dir
 
 
 def resume(model, checkpoint):
@@ -132,11 +152,11 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
         self,
         optimizer,
         epochs,
+        lr,
         strategy="cosine",
         param=295,
-        warmup_epochs=5,
-        warmup_strategy="linear",
-        warmup_param=2,
+        warmup_steps=10_000,
+        warmup_begin_lr=0.0,
         last_epoch=-1,
         min_lr=0
     ):
@@ -149,22 +169,26 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
         self.epochs = epochs
         self.strategy = strategy
         self.param = param
-        self.warmup_epochs = warmup_epochs
-        self.warmup_strategy = warmup_strategy
-        self.warmup_param = warmup_param
+        self.warmup_steps = warmup_steps
+        self.warmup_begin_lr = warmup_begin_lr
+        self.warmup_gamma = (lr - warmup_begin_lr) / warmup_steps
         self.min_lr = min_lr
         super(LRScheduler, self).__init__(optimizer, last_epoch)
 
     def get_lr(self):
         if self.last_epoch == 0:
             return self.base_lrs
-        elif self.last_epoch < self.warmup_epochs:
-            return self._get_lr(self.warmup_strategy, self.warmup_param)
+        elif self._step_count < self.warmup_steps:
+            return self.warmup()
         else:
             return self._get_lr(self.strategy, self.param)
 
     def _get_lr(self, strategy, param):
         return getattr(self, strategy)(param)
+
+    def warmup(self):
+        return [group['lr'] + self.warmup_gamma
+                for group in self.optimizer.param_groups]
 
     def linear(self, gamma):
         return [group['lr'] * gamma
@@ -184,7 +208,7 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
     def state_dict(self):
         return self._scheduler.state_dict()
 
-def adjust_learning_rate(lr, optimizer, epoch, warmup_epochs, step, len_epoch):
+def adjust_learning_rate(lr, optimizer, epoch, warmup_steps, step, len_epoch):
     """LR schedule that should yield 76% converged accuracy with batch size 256"""
     factor = epoch // 30
 
@@ -194,7 +218,7 @@ def adjust_learning_rate(lr, optimizer, epoch, warmup_epochs, step, len_epoch):
     lr = lr * (0.1**factor)
 
     """Warmup"""
-    if epoch < warmup_epochs:
+    if epoch < warmup_steps:
         lr = lr * float(1 + step + epoch*len_epoch) / (5. * len_epoch)
 
     # if(args.local_rank == 0):

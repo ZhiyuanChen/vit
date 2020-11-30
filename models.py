@@ -102,7 +102,7 @@ class VisionTransformer(nn.Module):
     def __init__(self, img_size=384, patches=16, num_classes=1000,
                  hidden_size=1024, num_layers=12, num_heads=12, mlp_ratio=4,
                  attn_bias=True, attn_scale=None, dropout=0., attn_dropout=0.,
-                 norm_layer=nn.LayerNorm, pre_size=False):
+                 norm_layer=nn.LayerNorm, pre_size=False, *args, **kwargs):
         super().__init__()
         self.num_classes = num_classes
         self.hidden_size = hidden_size
