@@ -170,15 +170,12 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
         self.warmup_steps = warmup_steps
 
     def get_lr(self):
-        if self.last_epoch == 0:
-            return self.base_lrs
-        else:
-            progress = (self._step_count - self.warmup_steps) / float(self.steps - self.warmup_steps)
-            progress = np.clip(progress, 0.0, 1.0)
-            ratio = getattr(self, self.strategy)(progress)
-            if self.warmup_steps:
-                ratio = ratio * np.minimum(1., self._step_count / self.warmup_steps)
-            return [lr * ratio for lr in self.base_lrs]
+        progress = (self._step_count - self.warmup_steps) / float(self.steps - self.warmup_steps)
+        progress = np.clip(progress, 0.0, 1.0)
+        ratio = getattr(self, self.strategy)(progress)
+        if self.warmup_steps:
+            ratio = ratio * np.minimum(1., self._step_count / self.warmup_steps)
+        return [lr * ratio for lr in self.base_lrs]
 
     def linear(self, progress):
         return self.final_lr + (1 - self.final_lr) * (1.0 - progress)
