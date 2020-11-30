@@ -171,7 +171,7 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
         self.param = param
         self.warmup_steps = warmup_steps
         self.warmup_begin_lr = warmup_begin_lr
-        self.warmup_gamma = (lr - warmup_begin_lr) / warmup_steps if warmup_steap > 0 else 0
+        self.warmup_gamma = (lr - warmup_begin_lr) / warmup_steps if warmup_steps > 0 else 0
         self.min_lr = min_lr
         super(LRScheduler, self).__init__(optimizer, last_epoch)
 
