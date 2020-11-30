@@ -25,7 +25,7 @@ from run import parse
 
 
 def main(args):
-    global best_acc1, writer, save_dir
+    global best_acc1
     best_acc1, writer, save_dir = 0, None, None
     _experiment, _writer, _save_dir = init(args)
     if _writer is not None:
