@@ -171,7 +171,7 @@ def train(loader, model, criterion, optimizer, scheduler, writer, epoch, args):
         optimizer.step()
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
-        if args.profile >= 0: torch.cuda.nvtx.range_push("scheduler.step()")
+        if args.profile >= 0: torch.cuda.nvtx.range_push("optimizer.step()")
         scheduler.step()
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
