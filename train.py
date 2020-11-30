@@ -54,8 +54,6 @@ def main(args):
     model = model.cuda().to(memory_format=memory_format)
 
     args.learning_rate = args.learning_rate * float(args.batch_size*args.world_size) / 4096.
-    args.warmup_steps = args.warmup_steps * float(args.batch_size*args.world_size) / 4096.
-
     optimizer = torch.optim.SGD(model.parameters(), 0,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
@@ -188,7 +186,7 @@ def train(loader, model, criterion, optimizer, scheduler, writer, epoch, args):
             losses.update(data.to_python_float(reduced_loss), images.size(0))
             top1.update(data.to_python_float(acc1), images.size(0))
             top5.update(data.to_python_float(acc5), images.size(0))
-            lr = optimizer.param_groups[0]['lr'] * 1000
+            lr = optimizer.param_groups[0]['lr']
 
             # measure elapsed time
             torch.cuda.synchronize()
@@ -202,7 +200,7 @@ def train(loader, model, criterion, optimizer, scheduler, writer, epoch, args):
                 writer.add_scalar('train/acc5', top5.val, total_iter)
 
             log('Epoch: [{0}][{1}/{2}]\t'
-                'LR {lr:.4f}\t'
+                'LR {lr:.6f}\t'
                 'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
                 # 'Speed {3:.3f} ({4:.3f})\t'
                 'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
