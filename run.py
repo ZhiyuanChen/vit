@@ -61,10 +61,8 @@ def parse():
                         help='checkpoint to validate')
     parser.add_argument('-r', '--resume', default=None, type=str, metavar='PATH',
                         help='path to latest checkpoint (default: None)')
-    parser.add_argument('-b', '--batch_size', default=12, type=int,
-                        metavar='N', help='mini-batch size per process (default: 12)')
-    parser.add_argument('-w', '--workers', default=16, type=int, metavar='N',
-                        help='number of data loading workers (default: 16)')
+    parser.add_argument('-b', '--batch_size', default=16, type=int,
+                        metavar='N', help='mini-batch size per process (default: 16)')
     parser.add_argument('-pf', '--print_freq', default=100, type=int,
                         metavar='N', help='print frequency (default: 100)')
     parser.add_argument('-sf', '--save_freq', default=10, type=int,
@@ -99,7 +97,7 @@ def parse():
     parser.add_argument("--local_rank", default=0, type=int)
     parser.add_argument('--sync_bn', action='store_true',
                         help='enabling apex sync BN.')
-    parser.add_argument('--opt_level', type=str, default='O0')
+    parser.add_argument('--opt_level', type=str, default='O1')
     parser.add_argument('--keep_batchnorm_fp32', type=str, default=None)
     parser.add_argument('--loss_scale', type=str, default=None)
     parser.add_argument('--channels_last', action='store_true')
@@ -109,7 +107,9 @@ def parse():
     parser.add_argument('-j', '--job_name', default='ViT', type=str)
     parser.add_argument('-p','--partition', default='pat_prototype', type=str)
     parser.add_argument('-x', '--exclude', nargs='+', default=None)
-    parser.add_argument('-g', '--gpus', default=8, type=int)
+    parser.add_argument('-g', '--gpus', default=32, type=int)
+    parser.add_argument('-w', '--workers', default=64, type=int, metavar='N',
+                        help='number of data loading workers (default: 64)')
 
     parser.set_defaults(train=True, tensorboard=True, slurm=True)
     args, unknown = parser.parse_known_args()
