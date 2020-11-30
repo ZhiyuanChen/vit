@@ -54,16 +54,13 @@ def main(args):
 
     model = model.cuda().to(memory_format=memory_format)
 
-    args.learning_rate = args.learning_rate * float(args.batch_size*args.world_size) / 4096.
+    args.lr = args.lr * float(args.batch_size*args.world_size) / 4096.
+    args.final_lr = args.final_lr * float(args.batch_size*args.world_size) / 4096.
     args.warmup_steps = args.warmup_steps / float(args.batch_size*args.world_size) * 4096.
 
-    optimizer = torch.optim.SGD(model.parameters(), args.warmup_lr,
+    optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
-    scheduler = LRScheduler(
-        optimizer, epochs=args.epochs, strategy=args.strategy,
-        lr=args.learning_rate, param=args.param,
-        warmup_steps=args.warmup_steps, warmup_begin_lr=args.warmup_lr)
 
     model, optimizer = amp.initialize(
         model, optimizer, opt_level=args.opt_level,
@@ -100,6 +97,10 @@ def main(args):
 
     log("length of traning dataset '{}'".format(len(train_loader)))
     log("length of validation dataset '{}'".format(len(val_loader)))
+
+    scheduler = LRScheduler(
+        optimizer, steps=args.epochs*len(train_loader), final_lr=args.final_lr,
+        strategy=args.strategy, warmup_steps=args.warmup_steps)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:

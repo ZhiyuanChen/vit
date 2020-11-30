@@ -80,20 +80,18 @@ def parse():
                         help='drop out rate')
     parser.add_argument('-ado', '--attn_dropout', default=0.0, type=float, metavar='M',
                         help='drop out rate for attention')
-    parser.add_argument('-lr', '--learning_rate', default=0.01, type=float,
+    parser.add_argument('-lr', '--learning_rate', dest='lr', default=0.01, type=float,
                         metavar='LR', help='base learning rate, scaled by total batch size / 4096')
+    parser.add_argument('-flr', '--final_learning_rate', dest='final_lr', default=1e-5, type=float,
+                        metavar='LR', help='final learning rate, scaled by total batch size / 4096')
     parser.add_argument('-m', '--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')
     parser.add_argument('-wd', '--weight_decay', default=0.3, type=float,
                         metavar='W', help='weight decay (default: 0.3)')
     parser.add_argument('-ls', '--strategy', default='cosine', type=str,
                         help='learning rate scaling strategy')
-    parser.add_argument('-lp', '--param', default=295, type=int, metavar='O',
-                        help='learng rate scaling parameters')
     parser.add_argument('-ws', '--warmup_steps', default=10_000, type=int, metavar='N',
                         help='number of warm up epochs to run')
-    parser.add_argument('-wl', '--warmup_lr', default=0.0, type=float,
-                        help='warm up learning rate')
     parser.add_argument('--deterministic', action='store_true')
 
     parser.add_argument("--local_rank", default=0, type=int)
@@ -124,9 +122,6 @@ if __name__ == '__main__':
     if (not args.train) and (not args.validate):
         args.train = True
     mode = 'train' if args.train else 'validate'
-
-    if args.warmup_steps == 0:
-        args.warmup_lr = args.learning_rate
 
     arguments = list()
 

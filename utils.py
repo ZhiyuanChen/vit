@@ -2,6 +2,8 @@ import os
 import math
 import shutil
 
+import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -66,9 +68,8 @@ def init(args):
         experiment = os.path.join(
             args.experiments, 
             f'{args.arch}-g{args.gpus}-b{args.batch_size}-d{args.dropout}' + \
-            f'-gc{args.gradient_clip}-lr{args.learning_rate}-m{args.momentum}' + \
-            f'-wd{args.weight_decay}-{args.strategy}{args.param}' + \
-            f'-wu{args.warmup_steps}'
+            f'-gc{args.gradient_clip}-lr{args.lr}-m{args.momentum}' + \
+            f'-wd{args.weight_decay}-{args.strategy}-wu{args.warmup_steps}'
             )
         if args.tensorboard:
             tensorboard_dir = os.path.join(experiment, args.tensorboard_dir)
@@ -151,14 +152,11 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
     def __init__(
         self,
         optimizer,
-        epochs,
-        lr,
+        steps,
+        final_lr,
         strategy="cosine",
-        param=295,
         warmup_steps=10_000,
-        warmup_begin_lr=0.0,
         last_epoch=-1,
-        min_lr=0
     ):
         if strategy not in ("constant", "cosine", "linear"):
             raise ValueError(
@@ -166,46 +164,31 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
                 "got {}".format(strategy)
             )
         self.last_epoch = last_epoch
-        self.epochs = epochs
+        self.steps = steps
+        self.final_lr = final_lr
         self.strategy = strategy
-        self.param = param
         self.warmup_steps = warmup_steps
-        self.warmup_begin_lr = warmup_begin_lr
-        self.warmup_gamma = (lr - warmup_begin_lr) / warmup_steps if warmup_steps > 0 else 0
-        self.min_lr = min_lr
         super(LRScheduler, self).__init__(optimizer, last_epoch)
 
     def get_lr(self):
         if self.last_epoch == 0:
             return self.base_lrs
-        elif self._step_count < self.warmup_steps:
-            return self.warmup()
         else:
-            return self._get_lr(self.strategy, self.param)
+            progress = (self._step_count - self.warmup_steps) / float(self.steps - self.warmup_steps)
+            progress = np.clip(progress, 0.0, 1.0)
+            ratio = getattr(self, self.strategy)(progress)
+            if self.warmup_steps:
+                ratio = ratio * np.minimum(1., self._step_count / self.warmup_steps)
+            return [group['lr'] + ratio
+                    for group in self.optimizer.param_groups]
 
-    def _get_lr(self, strategy, param):
-        return getattr(self, strategy)(param)
+    def linear(self, progress):
+        return self.final_lr + (1 - self.final_lr) * (1.0 - progress)
 
-    def warmup(self):
-        return [group['lr'] + self.warmup_gamma
-                for group in self.optimizer.param_groups]
+    def cosine(self, progress):
+        return 0.5 * (1. + np.cos(np.pi * progress))
 
-    def linear(self, gamma):
-        return [group['lr'] * gamma
-                for group in self.optimizer.param_groups]
-
-    def cosine(self, T_max):
-        if (self.last_epoch - 1 - T_max) % (2 * T_max) == 0:
-            return [group['lr'] + (base_lr - self.min_lr) *
-                    (1 - math.cos(math.pi / T_max)) / 2
-                    for base_lr, group in
-                    zip(self.base_lrs, self.optimizer.param_groups)]
-        return [(1 + math.cos(math.pi * self.last_epoch / T_max)) /
-                (1 + math.cos(math.pi * (self.last_epoch - 1) / T_max)) *
-                (group['lr'] - self.min_lr) + self.min_lr
-                for group in self.optimizer.param_groups]
-
-def adjust_learning_rate(lr, optimizer, epoch, warmup_steps, step, len_epoch):
+def adjust_lr(lr, optimizer, epoch, warmup_steps, step, len_epoch):
     """LR schedule that should yield 76% converged accuracy with batch size 256"""
     factor = epoch // 30
 
