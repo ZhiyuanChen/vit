@@ -179,7 +179,7 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
             ratio = getattr(self, self.strategy)(progress)
             if self.warmup_steps:
                 ratio = ratio * np.minimum(1., self._step_count / self.warmup_steps)
-            return [group['lr'] + ratio
+            return [group['lr'] * ratio
                     for group in self.optimizer.param_groups]
 
     def linear(self, progress):

@@ -42,7 +42,6 @@ def main(args):
     del checkpoint['head.weight']
     del checkpoint['head.bias']
     model.load_state_dict(checkpoint, strict=False)
-    log(model)
 
     if args.resume:
         resume(model, args.resume)
