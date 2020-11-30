@@ -54,7 +54,9 @@ def main(args):
     model = model.cuda().to(memory_format=memory_format)
 
     args.learning_rate = args.learning_rate * float(args.batch_size*args.world_size) / 4096.
-    optimizer = torch.optim.SGD(model.parameters(), 0,
+    args.warmup_steps = args.warmup_steps / float(args.batch_size*args.world_size) * 4096.
+
+    optimizer = torch.optim.SGD(model.parameters(), args.warmup_lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
     scheduler = LRScheduler(
