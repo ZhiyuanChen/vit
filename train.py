@@ -195,7 +195,7 @@ def train(loader, model, criterion, optimizer, scheduler, writer, epoch, args):
             batch_time.update((time.time() - end) / args.print_freq)
             end = time.time()
 
-            if args.tensorboard and args.local_rank == 0:
+            if args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
                 total_iter = iteration + iteration * epoch
                 writer.add_scalar('train/loss', losses.val, total_iter)
                 writer.add_scalar('train/acc1', top1.val, total_iter)

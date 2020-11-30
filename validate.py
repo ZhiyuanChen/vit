@@ -118,7 +118,7 @@ def validate(loader, model, criterion, writer, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if args.tensorboard:
+        if args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
             writer.add_scalar('val/loss', losses.val, iteration)
             writer.add_scalar('val/acc1', top1.val, iteration)
             writer.add_scalar('val/acc5', top5.val, iteration)
