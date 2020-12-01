@@ -1,6 +1,6 @@
 import os
-import math
 import shutil
+import logging
 
 import numpy as np
 
@@ -20,6 +20,7 @@ def log(string, proc_id=0):
 
 
 def init(args):
+    proc_id = 0
     if args.slurm:
         proc_id = int(os.environ['SLURM_PROCID'])
         ntasks = int(os.environ['SLURM_NTASKS'])
@@ -71,29 +72,28 @@ def init(args):
             f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}' + \
             f'-m{args.momentum}-wd{args.weight_decay}-{args.strategy}' + \
             f'-wu{args.warmup_steps}'
-            )
+        )
         if args.tensorboard:
-            tensorboard_dir = os.path.join(experiment, args.tensorboard_dir)
-            os.makedirs(tensorboard_dir, exist_ok=True)
-            writer = SummaryWriter(log_dir=tensorboard_dir)
+            os.makedirs(experiment, exist_ok=True)
+            writer = SummaryWriter(log_dir=experiment)
         if args.train:
             save_dir = os.path.join(experiment, args.save_dir)
             os.makedirs(save_dir, exist_ok=True)
     return experiment, writer, save_dir
 
 
-def resume(model, checkpoint):
-    if os.path.isfile(checkpoint):
-        log("=> loading checkpoint '{}'".format(checkpoint))
-        checkpoint = torch.load(checkpoint, map_location = lambda storage, loc: storage.cuda(args.gpu))
+def resume(model, optimizer, args):
+    if os.path.isfile(args.checkpoint):
+        log("=> loading checkpoint '{}'".format(args.checkpoint))
+        checkpoint = torch.load(args.checkpoint, map_location = lambda storage, loc: storage.cuda(args.gpu))
         args.start_epoch = checkpoint['epoch']
-        best_prec1 = checkpoint['best_prec1']
+        best_acc1 = checkpoint['best_acc1']
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         log("=> loaded checkpoint '{}' (epoch {})"
                 .format(checkpoint, checkpoint['epoch']))
     else:
-        log("=> no checkpoint found at '{}'".format(checkpoint))
+        log("=> no checkpoint found at '{}'".format(args.checkpoint))
 
 
 class AverageMeter(object):

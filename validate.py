@@ -37,9 +37,6 @@ def main(args):
     checkpoint = torch.load(args.checkpoint)
     model.load_state_dict(checkpoint)
 
-    if args.resume:
-        resume(model, args.resume)
-
     if args.sync_bn:
         import apex
         log("using apex synced BN")
@@ -48,6 +45,9 @@ def main(args):
     model = model.cuda().to(memory_format=memory_format)
 
     optimizer = torch.optim.SGD(model.parameters(), 0)
+
+    if args.resume:
+        resume(model, args)
 
     model, optimizer = amp.initialize(
         model, optimizer, opt_level=args.opt_level,

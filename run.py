@@ -34,8 +34,6 @@ def parse():
                       help='validate model on validation set')
     parser.add_argument('-tb', '--tensorboard', action='store_true',
                         help='use tensorboard')
-    parser.add_argument('-tbd', '--tensorboard_dir', default='tensorboard',
-                        type=str, help='directory of tensorboard results')
     parser.add_argument('-ex', '--experiments', default='experiments',
                         type=str, help='directory of results')
 
@@ -80,7 +78,7 @@ def parse():
                         help='drop out rate')
     parser.add_argument('-ado', '--attn_dropout', default=0.0, type=float, metavar='M',
                         help='drop out rate for attention')
-    parser.add_argument('-lr', '--learning_rate', dest='lr', default=0.01, type=float,
+    parser.add_argument('-l', '--learning_rate', dest='lr', default=0.01, type=float,
                         metavar='LR', help='base learning rate, scaled by total batch size / 4096')
     parser.add_argument('-flr', '--final_learning_rate', dest='final_lr', default=1e-5, type=float,
                         metavar='LR', help='final learning rate, scaled by total batch size / 4096')

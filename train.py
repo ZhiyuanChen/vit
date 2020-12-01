@@ -43,9 +43,6 @@ def main(args):
     del checkpoint['head.bias']
     model.load_state_dict(checkpoint, strict=False)
 
-    if args.resume:
-        resume(model, args.resume)
-
     if args.sync_bn:
         import apex
         log("using apex synced BN")
@@ -60,6 +57,9 @@ def main(args):
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
+
+    if args.resume:
+        resume(model, optimizer, args)
 
     model, optimizer = amp.initialize(
         model, optimizer, opt_level=args.opt_level,
