@@ -67,9 +67,10 @@ def init(args):
     if proc_id == 0:
         experiment = os.path.join(
             args.experiments, 
-            f'{args.arch}-g{args.gpus}-b{args.batch_size}-d{args.dropout}' + \
-            f'-gc{args.gradient_clip}-lr{args.lr}-m{args.momentum}' + \
-            f'-wd{args.weight_decay}-{args.strategy}-wu{args.warmup_steps}'
+            f'{args.arch}-g{args.gpus}-b{args.batch_size}-e{args.epochs}' + \
+            f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}' + \
+            f'-m{args.momentum}-wd{args.weight_decay}-{args.strategy}' + \
+            f'-wu{args.warmup_steps}'
             )
         if args.tensorboard:
             tensorboard_dir = os.path.join(experiment, args.tensorboard_dir)
@@ -163,12 +164,11 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
                 "Only 'constant' or 'linear' warmup_method accepted"
                 "got {}".format(strategy)
             )
-        super(LRScheduler, self).__init__(optimizer, last_epoch)
         self.steps = steps
         self.final_lr = final_lr
         self.strategy = strategy
         self.warmup_steps = warmup_steps
-        print(self.warmup_steps)
+        super(LRScheduler, self).__init__(optimizer, last_epoch)
 
     def get_lr(self):
         progress = (self._step_count - self.warmup_steps) / float(self.steps - self.warmup_steps)
