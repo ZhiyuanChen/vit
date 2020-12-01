@@ -107,7 +107,7 @@ def main(args):
 
         train(train_loader, model, criterion, optimizer, scheduler, writer, epoch, args)
 
-        acc1 = validate(val_loader, model, criterion, writer, args)
+        acc1 = validate(val_loader, model, criterion, writer, args, epoch=epoch)
 
         if int(os.environ['SLURM_PROCID']) == 0:
             is_best = acc1 > best_acc1
@@ -197,7 +197,7 @@ def train(loader, model, criterion, optimizer, scheduler, writer, epoch, args):
             end = time.time()
 
             if args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
-                total_iter = iteration + iteration * epoch
+                total_iter = iteration + len(loader) * epoch
                 writer.add_scalar('train/loss', losses.val, total_iter)
                 writer.add_scalar('train/acc1', top1.val, total_iter)
                 writer.add_scalar('train/acc5', top5.val, total_iter)

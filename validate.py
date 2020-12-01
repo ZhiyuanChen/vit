@@ -79,7 +79,7 @@ def main(args):
     validate(val_loader, model, criterion, args)
 
 
-def validate(loader, model, criterion, writer, args):
+def validate(loader, model, criterion, writer, args, epoch=None):
     log('evaluating')
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -118,7 +118,7 @@ def validate(loader, model, criterion, writer, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
+        if epoch is None and args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
             writer.add_scalar('val/loss', losses.val, iteration)
             writer.add_scalar('val/acc1', top1.val, iteration)
             writer.add_scalar('val/acc5', top5.val, iteration)
@@ -141,6 +141,11 @@ def validate(loader, model, criterion, writer, args):
 
     log(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
           .format(top1=top1, top5=top5))
+
+    if epoch is not None and args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
+        writer.add_scalar('val/loss', losses.val, epoch)
+        writer.add_scalar('val/acc1', top1.val, epoch)
+        writer.add_scalar('val/acc5', top5.val, epoch)
 
     return top1.avg
 
