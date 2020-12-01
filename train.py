@@ -201,6 +201,7 @@ def train(loader, model, criterion, optimizer, scheduler, writer, epoch, args):
                 writer.add_scalar('train/loss', losses.val, total_iter)
                 writer.add_scalar('train/acc1', top1.val, total_iter)
                 writer.add_scalar('train/acc5', top5.val, total_iter)
+                writer.add_scalar('train/lr', lr, total_iter)
 
             log('Epoch: [{0}][{1}/{2}]\t'
                 'LR {lr:.6f}\t'
