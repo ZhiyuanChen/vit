@@ -125,11 +125,13 @@ class VisionTransformer(nn.Module):
         nn.init.trunc_normal_(self.cls_token, std=.02)
         if isinstance(module, nn.Linear):
             nn.init.trunc_normal_(module.weight, std=.02)
-            if isinstance(module, nn.Linear) and module.bias is not None:
-                nn.init.constant_(module.bias, 0)
+            if isinstance(module, nn.Linear):
+                nn.init.zeros_(module.weight)
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
         elif isinstance(module, nn.LayerNorm):
-            nn.init.constant_(module.bias, 0)
-            nn.init.constant_(module.weight, 1.0)
+            nn.init.zeros_(module.bias)
+            nn.init.ones_(module.weight)
 
     def forward(self, x):
         B = x.shape[0]
