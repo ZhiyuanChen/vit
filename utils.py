@@ -71,7 +71,7 @@ def init(args):
             f'{args.arch}-g{args.gpus}-b{args.batch_size}-e{args.epochs}' + \
             f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}' + \
             f'-m{args.momentum}-wd{args.weight_decay}-{args.strategy}' + \
-            f'-wu{args.warmup_steps}'
+            f'-wu{args.warmup_steps}-{args.opt_level}'
         )
         if args.tensorboard:
             os.makedirs(experiment, exist_ok=True)
