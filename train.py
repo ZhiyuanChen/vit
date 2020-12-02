@@ -107,7 +107,7 @@ def main(args):
 
         train(train_loader, model, criterion, optimizer, scheduler, writer, epoch, args)
 
-        acc1, acc5, loss = validate(val_loader, model, criterion, writer, args, epoch=epoch)
+        acc1, acc5, loss = validate(val_loader, model, criterion, writer, args)
         writer.add_scalar('validate/loss', loss, epoch)
         writer.add_scalar('validate/acc1', acc1, epoch)
         writer.add_scalar('validate/acc5', acc5, epoch)
