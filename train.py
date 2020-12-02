@@ -107,7 +107,10 @@ def main(args):
 
         train(train_loader, model, criterion, optimizer, scheduler, writer, epoch, args)
 
-        acc1 = validate(val_loader, model, criterion, writer, args, epoch=epoch)
+        acc1, acc5, loss = validate(val_loader, model, criterion, writer, args, epoch=epoch)
+        writer.add_scalar('validate/loss', loss, epoch)
+        writer.add_scalar('validate/acc1', acc1, epoch)
+        writer.add_scalar('validate/acc5', acc5, epoch)
 
         if int(os.environ['SLURM_PROCID']) == 0:
             is_best = acc1 > best_acc1
