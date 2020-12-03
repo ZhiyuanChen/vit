@@ -76,10 +76,10 @@ def main(args):
 
     log("length of validation dataset '{}'".format(len(val_loader)))
 
-    validate(val_loader, model, criterion, args)
+    validate(val_loader, model, criterion, args, writer)
 
 
-def validate(loader, model, criterion, writer, args):
+def validate(loader, model, criterion, args, writer=None):
     log('evaluating')
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -118,10 +118,11 @@ def validate(loader, model, criterion, writer, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
-            writer.add_scalar('val/loss', losses.val, iteration)
-            writer.add_scalar('val/acc1', top1.val, iteration)
-            writer.add_scalar('val/acc5', top5.val, iteration)
+        # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
+        if writer:
+            writer.add_scalar('validate/loss', losses.val, iteration)
+            writer.add_scalar('validate/acc1', top1.val, iteration)
+            writer.add_scalar('validate/acc5', top5.val, iteration)
 
         # TODO:  Change timings to mirror train().
         if iteration % args.print_freq == 0:

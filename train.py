@@ -105,12 +105,14 @@ def main(args):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
-        train(train_loader, model, criterion, optimizer, scheduler, writer, epoch, args)
+        train(train_loader, model, criterion, optimizer, scheduler, epoch, args, writer)
 
-        acc1, acc5, loss = validate(val_loader, model, criterion, writer, args)
-        writer.add_scalar('validate/loss', loss, epoch)
-        writer.add_scalar('validate/acc1', acc1, epoch)
-        writer.add_scalar('validate/acc5', acc5, epoch)
+        acc1, acc5, loss = validate(val_loader, model, criterion, args)
+        # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
+        if writer:
+            writer.add_scalar('validate/loss', loss, epoch)
+            writer.add_scalar('validate/acc1', acc1, epoch)
+            writer.add_scalar('validate/acc5', acc5, epoch)
 
         if int(os.environ['SLURM_PROCID']) == 0:
             is_best = acc1 > best_acc1
@@ -134,7 +136,7 @@ def main(args):
                     'scheduler' : scheduler.state_dict(),
                 }, os.path.join(save_dir, f'epoch_{epoch}.pth'))
 
-def train(loader, model, criterion, optimizer, scheduler, writer, epoch, args):
+def train(loader, model, criterion, optimizer, scheduler, epoch, args, writer):
     log('training {}'.format(epoch))
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -199,7 +201,8 @@ def train(loader, model, criterion, optimizer, scheduler, writer, epoch, args):
             batch_time.update((time.time() - end) / args.print_freq)
             end = time.time()
 
-            if args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
+            # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
+            if writer:
                 total_iter = iteration + len(loader) * epoch
                 writer.add_scalar('train/loss', losses.val, total_iter)
                 writer.add_scalar('train/acc1', top1.val, total_iter)
