@@ -162,7 +162,6 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, writer):
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         loss = criterion(output, target)
-        optimizer.zero_grad()
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("backward")
         with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -172,13 +171,15 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, writer):
         if args.gradient_clip:
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.gradient_clip)
 
-        if args.profile >= 0: torch.cuda.nvtx.range_push("optimizer.step()")
-        optimizer.step()
-        if args.profile >= 0: torch.cuda.nvtx.range_pop()
+        if (iteration + 1) % args.accum_steps == 0:
+            if args.profile >= 0: torch.cuda.nvtx.range_push("optimizer.step()")
+            optimizer.step()
+            optimizer.zero_grad()
+            if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
-        if args.profile >= 0: torch.cuda.nvtx.range_push("scheduler.step()")
-        scheduler.step()
-        if args.profile >= 0: torch.cuda.nvtx.range_pop()
+            if args.profile >= 0: torch.cuda.nvtx.range_push("scheduler.step()")
+            scheduler.step()
+            if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         if iteration % args.print_freq == 0:
             # measure accuracy
@@ -232,6 +233,9 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, writer):
             log("Profiling ended at iteration {}".format(iteration))
             torch.cuda.cudart().cudaProfilerStop()
             quit()
+
+    optimizer.step()
+    optimizer.zero_grad()
 
 
 if __name__ == '__main__':

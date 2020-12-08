@@ -61,6 +61,8 @@ def parse():
                         help='path to latest checkpoint (default: None)')
     parser.add_argument('-b', '--batch_size', default=16, type=int,
                         metavar='N', help='mini-batch size per process (default: 16)')
+    parser.add_argument('-as', '--accum_steps', default=16, type=int,
+                        metavar='N', help='gradient accumulation steps')
     parser.add_argument('-pf', '--print_freq', default=100, type=int,
                         metavar='N', help='print frequency (default: 100)')
     parser.add_argument('-sf', '--save_freq', default=10, type=int,

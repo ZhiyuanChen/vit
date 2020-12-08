@@ -1,6 +1,7 @@
 import os
 import shutil
 import logging
+import math
 
 import numpy as np
 
@@ -157,6 +158,7 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
         final_lr,
         strategy="cosine",
         warmup_steps=10_000,
+        accum_steps=1,
         last_epoch=-1,
     ):
         if strategy not in ("constant", "cosine", "linear"):
@@ -164,10 +166,10 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
                 "Only 'constant' or 'linear' warmup_method accepted"
                 "got {}".format(strategy)
             )
-        self.steps = steps
+        self.steps = math.ceil(steps / accum_steps)
         self.final_lr = final_lr
         self.strategy = strategy
-        self.warmup_steps = warmup_steps
+        self.warmup_steps = math.ceil(warmup_steps / accum_steps)
         super(LRScheduler, self).__init__(optimizer, last_epoch)
 
     def get_lr(self):
