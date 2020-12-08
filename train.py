@@ -162,6 +162,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, writer):
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         loss = criterion(output, target)
+        loss = loss / args.accum_steps
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("backward")
         with amp.scale_loss(loss, optimizer) as scaled_loss:
