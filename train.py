@@ -50,9 +50,9 @@ def main(args):
 
     model = model.cuda().to(memory_format=memory_format)
 
-    args.lr = args.lr * float(args.batch_size*args.world_size) / 4096.
-    args.final_lr = args.final_lr * float(args.batch_size*args.world_size) / 4096.
-    args.warmup_steps = args.warmup_steps / float(args.batch_size*args.world_size) * 4096.
+    args.lr = args.lr * float(args.batch_size*args.world_size) / args.lr_factor
+    args.final_lr = args.final_lr * float(args.batch_size*args.world_size) / args.lr_factor
+    args.warmup_steps = args.warmup_steps / float(args.batch_size*args.world_size) * args.lr_factor
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
@@ -99,7 +99,8 @@ def main(args):
 
     scheduler = LRScheduler(
         optimizer, steps=args.epochs*len(train_loader), final_lr=args.final_lr,
-        strategy=args.strategy, warmup_steps=args.warmup_steps)
+        strategy=args.strategy, warmup_steps=args.warmup_steps,
+        accum_steps=args.accum_steps)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:

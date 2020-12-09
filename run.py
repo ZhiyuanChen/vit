@@ -74,16 +74,18 @@ def parse():
                         help='number of total epochs to run')
     parser.add_argument('-se', '--start_epoch', default=0, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')
-    parser.add_argument('-gc', '--gradient_clip', default=1, type=float, metavar='M',
+    parser.add_argument('-gc', '--gradient_clip', default=1.0, type=float, metavar='M',
                         help='momentum')
     parser.add_argument('-do', '--dropout', default=0.1, type=float, metavar='M',
                         help='drop out rate')
     parser.add_argument('-ado', '--attn_dropout', default=0.0, type=float, metavar='M',
                         help='drop out rate for attention')
     parser.add_argument('-l', '--lr', default=0.01, type=float,
-                        metavar='LR', help='base learning rate, scaled by total batch size / 4096')
+                        metavar='LR', help='base learning rate, scaled by total batch size / lr_factor')
+    parser.add_argument('-lrf', '--lr_factor', default=4096.0,
+                        type=float, help='scale learning rate')
     parser.add_argument('-flr', '--final_lr', default=1e-5, type=float,
-                        metavar='LR', help='final learning rate, scaled by total batch size / 4096')
+                        metavar='LR', help='final learning rate, scaled by total batch size / lr_factor')
     parser.add_argument('-m', '--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')
     parser.add_argument('-wd', '--weight_decay', default=0.3, type=float,
