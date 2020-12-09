@@ -68,10 +68,10 @@ def init(args):
     experiment, writer, save_dir = None, None, None
     if proc_id == 0:
         experiment = os.path.join(
-            args.experiments, 
-            f'{args.arch}-g{args.gpus}-b{args.batch_size}-e{args.epochs}' + \
-            f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}' + \
-            f'-m{args.momentum}-wd{args.weight_decay}-{args.strategy}' + \
+            args.experiments,
+            f'{args.arch}-g{args.gpus}-b{args.batch_size}-e{args.epochs}',
+            f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}'
+            f'-m{args.momentum}-wd{args.weight_decay}-{args.strategy}'
             f'-ws{args.warmup_steps}-as{args.accum_steps}-{args.opt_level}'
         )
         if args.tensorboard:
@@ -86,7 +86,7 @@ def init(args):
 def resume(model, optimizer, args):
     if os.path.isfile(args.checkpoint):
         log("=> loading checkpoint '{}'".format(args.checkpoint))
-        checkpoint = torch.load(args.checkpoint, map_location = lambda storage, loc: storage.cuda(args.gpu))
+        checkpoint = torch.load(args.checkpoint, map_location=lambda storage, loc: storage.cuda(args.gpu))
         args.start_epoch = checkpoint['epoch']
         best_acc1 = checkpoint['best_acc1']
         model.load_state_dict(checkpoint['state_dict'])
