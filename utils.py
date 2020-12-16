@@ -131,11 +131,11 @@ def accuracy(output, target, topk=(1,)):
     return res
 
 
-def save_checkpoint(state, is_best, folder, filename='checkpoint.pth', bestname=None):
-    path = os.path.join(folder, filename)
+def save_checkpoint(state, is_best, save_dir, save_name='checkpoint.pth', best_name=None):
+    path = os.path.join(save_dir, save_name)
     torch.save(state, path)
     if is_best:
-        best = os.path.join(folder, bestname or f'{state["acc1"]}.pth')
+        best = os.path.join(save_dir, best_name or f'{state["acc1"]}.pth')
         shutil.copyfile(path, best)
 
 

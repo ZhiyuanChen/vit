@@ -118,24 +118,18 @@ def main(args):
         if int(os.environ['SLURM_PROCID']) == 0:
             is_best = acc1 > best_acc1
             best_acc1 = max(acc1, best_acc1)
-            if is_best:
-                torch.save({
+            if epoch % args.save_freq == 0:
+                state = {
                     'epoch': epoch,
                     'arch': args.arch,
+                    'args': vars(args),
                     'state_dict': model.state_dict(),
                     'acc1': acc1,
+                    'acc5': acc5,
                     'optimizer' : optimizer.state_dict(),
                     'scheduler' : scheduler.state_dict(),
-                }, os.path.join(save_dir, f'{acc1}.pth'))
-            elif epoch % args.save_freq == 0:
-                torch.save({
-                    'epoch': epoch,
-                    'arch': args.arch,
-                    'state_dict': model.state_dict(),
-                    'acc1': acc1,
-                    'optimizer' : optimizer.state_dict(),
-                    'scheduler' : scheduler.state_dict(),
-                }, os.path.join(save_dir, f'epoch_{epoch}.pth'))
+                }
+                save_checkpoint(state, is_best, save_dir, f'epoch-{epoch}.pth')
 
 def train(loader, model, criterion, optimizer, scheduler, epoch, args, writer):
     log('training {}'.format(epoch))
