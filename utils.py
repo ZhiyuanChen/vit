@@ -67,13 +67,11 @@ def init(args):
 
     experiment, writer, save_dir = None, None, None
     if proc_id == 0:
-        experiment = os.path.join(
-            args.experiments,
-            f'{args.arch}-g{args.gpus}-b{args.batch_size}-e{args.epochs}',
-            f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}'
-            f'-m{args.momentum}-wd{args.weight_decay}-{args.strategy}'
-            f'-ws{args.warmup_steps}-as{args.accum_steps}-{args.opt_level}'
-        )
+        name = f'{args.arch}-g{args.gpus}-b{args.batch_size}-e{args.epochs}' \
+               f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}' \
+               f'-m{args.momentum}-wd{args.weight_decay}-{args.strategy}' \
+               f'-ws{args.warmup_steps}-as{args.accum_steps}-{args.opt_level}'
+        experiment = os.path.join(args.experiments, name.strip('/'))
         if args.tensorboard:
             os.makedirs(experiment, exist_ok=True)
             writer = SummaryWriter(log_dir=experiment)
@@ -156,6 +154,7 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
         optimizer,
         steps,
         final_lr,
+        min_lr=1e-6,
         strategy="cosine",
         warmup_steps=10_000,
         accum_steps=1,
@@ -168,6 +167,7 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
             )
         self.steps = math.ceil(steps / accum_steps)
         self.final_lr = final_lr
+        self.min_lr = min_lr
         self.strategy = strategy
         self.warmup_steps = math.ceil(warmup_steps / accum_steps)
         super(LRScheduler, self).__init__(optimizer, last_epoch)
@@ -178,7 +178,7 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
         ratio = getattr(self, self.strategy)(progress)
         if self.warmup_steps:
             ratio = ratio * np.minimum(1., self._step_count / self.warmup_steps)
-        return [lr * ratio for lr in self.base_lrs]
+        return [max(self.min_lr, lr * ratio) for lr in self.base_lrs]
 
     def linear(self, progress):
         return self.final_lr + (1 - self.final_lr) * (1.0 - progress)
