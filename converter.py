@@ -2,6 +2,8 @@ from collections import OrderedDict as OrderedDict
 
 import torch
 import numpy as np
+import scipy
+import scipy.ndimage
 
 from tqdm import tqdm
 
@@ -15,7 +17,17 @@ def convert(npz):
             if i == 'cls' or 'key' in i or 'value' in i:
                 continue
             key = reanme(i)
-            value = torch.tensor(npz[i])
+            value = npz[i]
+            if 'pos_embed' in key:
+                posemb_tok, posemb_grid = value[:, :1], value[0, 1:]
+                gs_old = int(np.sqrt(len(posemb_grid)))
+                gs_new = int(np.sqrt(576))
+                posemb_grid = posemb_grid.reshape(gs_old, gs_old, -1)
+                zoom = (gs_new / gs_old, gs_new / gs_old, 1)
+                posemb_grid = scipy.ndimage.zoom(posemb_grid, zoom, order=1)
+                posemb_grid = posemb_grid.reshape(1, gs_new * gs_new, -1)
+                value = np.concatenate([posemb_tok, posemb_grid], axis=1)
+            value = torch.tensor(value)
             if 'fc' in key or 'head' in key:
                 value = value.T
             elif 'att' in key:
@@ -30,11 +42,13 @@ def convert(npz):
                         value = torch.cat((value, torch.tensor(npz[i.replace('query', 'key')]).view(-1, size).T, torch.tensor(npz[i.replace('query', 'value')]).view(-1, size).T))
             elif 'embedding.weight' in key:
                 value = value.permute(3, 2, 0, 1)
+            if 'head' in key:
+                value = torch.zeros(1000, 1024)
             if key != 'encoder.pos_embed':
                 value = value.squeeze()
             state_dict[key] = value
-    except Exception:
-         import pdb; pdb.set_trace()
+    except Exception as e:
+        import pdb; pdb.set_trace()
     return state_dict
 
 
