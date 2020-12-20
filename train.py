@@ -38,7 +38,7 @@ def main(args):
     model = models.__dict__[args.arch](**vars(args))
 
     checkpoint = torch.load(args.checkpoint)
-    del checkpoint['encoder.pos_embed']
+    # del checkpoint['encoder.pos_embed']
     del checkpoint['head.weight']
     del checkpoint['head.bias']
     model.load_state_dict(checkpoint, strict=False)
@@ -50,8 +50,8 @@ def main(args):
 
     model = model.cuda().to(memory_format=memory_format)
 
-    args.lr = args.lr * float(args.batch_size*args.world_size) / args.lr_factor
-    args.final_lr = args.final_lr * float(args.batch_size*args.world_size) / args.lr_factor
+    args.lr = args.lr * float(args.batch_size*args.world_size) * args.accum_steps / args.lr_factor
+    args.final_lr = args.final_lr * float(args.batch_size*args.world_size) * args.accum_steps / args.lr_factor
     args.warmup_steps = args.warmup_steps / float(args.batch_size*args.world_size) * args.lr_factor
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
@@ -225,7 +225,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, writer):
 
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
-        if args.profile >= 0 and iteration == args.profile + 10:
+        if args.profile >= 0 and iteration == args.profile + 100:
             log("Profiling ended at iteration {}".format(iteration))
             torch.cuda.cudart().cudaProfilerStop()
             quit()
