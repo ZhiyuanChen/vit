@@ -37,12 +37,6 @@ def main(args):
     log("creating model '{}'".format(args.arch))
     model = models.__dict__[args.arch](**vars(args))
 
-    checkpoint = torch.load(args.checkpoint)
-    # del checkpoint['encoder.pos_embed']
-    del checkpoint['head.weight']
-    del checkpoint['head.bias']
-    model.load_state_dict(checkpoint, strict=False)
-
     if args.sync_bn:
         import apex
         log("using apex synced BN")
