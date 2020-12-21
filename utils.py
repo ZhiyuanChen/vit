@@ -37,11 +37,6 @@ def init(args):
         os.environ['LOCAL_RANK'] = str(local_rank)
         args.local_rank = local_rank
 
-    log("opt_level = {}".format(args.opt_level))
-    log("keep_batchnorm_fp32 = {} {}".format(args.keep_batchnorm_fp32, type(args.keep_batchnorm_fp32)))
-    log("loss_scale = {} {}".format(args.loss_scale, type(args.loss_scale)))
-    log("\nCUDNN VERSION: {}\n".format(torch.backends.cudnn.version()))
-
     cudnn.benchmark = True
     if args.deterministic:
         cudnn.benchmark = False
@@ -65,7 +60,7 @@ def init(args):
 
     assert torch.backends.cudnn.enabled, "Amp requires cudnn backend to be enabled."
 
-    experiment, writer, save_dir = None, None, None
+    experiment, logger, writer, save_dir = None, None, None, None
     if proc_id == 0:
         name = f'{args.arch}-g{args.gpus}-b{args.batch_size}-e{args.epochs}' \
                f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}' \
@@ -75,10 +70,12 @@ def init(args):
         if args.tensorboard:
             os.makedirs(experiment, exist_ok=True)
             writer = SummaryWriter(log_dir=experiment)
+        if args.log_dir:
+            logger = logging.setup_logger(logdir)
         if args.train:
             save_dir = os.path.join(experiment, args.save_dir)
             os.makedirs(save_dir, exist_ok=True)
-    return experiment, writer, save_dir
+    return experiment, logger, writer, save_dir
 
 
 def resume(model, optimizer, args):
