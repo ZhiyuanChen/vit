@@ -85,6 +85,12 @@ def parse():
                         type=str,
                         metavar='PATH',
                         help='path to latest checkpoint (default: None)')
+    parser.add_argument('-c',
+                        '--num_classes',
+                        default=21843,
+                        type=int,
+                        metavar='N',
+                        help='number of classes')
     parser.add_argument('-s',
                         '--img_size',
                         default=224,
