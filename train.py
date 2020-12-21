@@ -75,17 +75,14 @@ def main(args):
     traindir = os.path.join(args.data, 'train')
     valdir = os.path.join(args.data, 'val')
 
-    crop_size = 384
-    val_size = 384
-
     log("loading dataset '{}'".format(args.data))
     train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(crop_size),
+        transforms.RandomResizedCrop(args.img_size),
         transforms.RandomHorizontalFlip(),
     ])
     val_transform = transforms.Compose([
         transforms.Resize(val_size),
-        transforms.CenterCrop(crop_size),
+        transforms.CenterCrop(args.img_size),
     ])
     train_dataset, train_sampler, train_loader = \
         data.load_data(traindir, train_transform, args.batch_size,

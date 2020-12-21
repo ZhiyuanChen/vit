@@ -88,6 +88,12 @@ def parse():
                         type=str,
                         metavar='PATH',
                         help='path to latest checkpoint (default: None)')
+    parser.add_argument('-s',
+                        '--img_size',
+                        default=224,
+                        type=int,
+                        metavar='N',
+                        help='image size to crop (default: 224)')
     parser.add_argument('-b',
                         '--batch_size',
                         default=16,
