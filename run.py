@@ -73,19 +73,18 @@ def parse():
                         '--pretrained',
                         action='store_true',
                         help='use pre-trained model')
-    parser.add_argument(
-        '-c',
-        '--checkpoint',
-        default='/mnt/lustre/chenzhiyuan1/pyvit/checkpoints/21kl16.pth',
-        type=str,
-        help='checkpoint to validate')
+    parser.add_argument('-c',
+                        '--checkpoint',
+                        default='/mnt/lustre/chenzhiyuan1/pyvit/checkpoints/21kl16.pth',
+                        type=str,
+                        help='checkpoint to validate')
     parser.add_argument('-r',
                         '--resume',
                         default=None,
                         type=str,
                         metavar='PATH',
                         help='path to latest checkpoint (default: None)')
-    parser.add_argument('-c',
+    parser.add_argument('-n',
                         '--num_classes',
                         default=21843,
                         type=int,
