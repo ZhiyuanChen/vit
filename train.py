@@ -46,12 +46,11 @@ def main(args):
 
     model = model.cuda().to(memory_format=memory_format)
 
-    args.lr = args.lr * float(
+    scale_factor = float(
         args.batch_size * args.world_size) * args.accum_steps / args.lr_factor
-    args.final_lr = args.final_lr * float(
-        args.batch_size * args.world_size) * args.accum_steps / args.lr_factor
-    args.warmup_steps = args.warmup_steps / float(
-        args.batch_size * args.world_size) * args.lr_factor
+    args.lr = args.lr * scale_factor
+    args.final_lr = args.final_lr * scale_factor
+    args.warmup_steps = args.warmup_steps // scale_factor
 
     optimizer = torch.optim.SGD(model.parameters(),
                                 args.lr,
