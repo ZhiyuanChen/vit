@@ -70,9 +70,6 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss().cuda()
 
-    traindir = os.path.join(args.data, 'train')
-    valdir = os.path.join(args.data, 'val')
-
     if logger:
         logger.info("loading dataset '{}'".format(args.data))
     train_transform = transforms.Compose([
@@ -84,10 +81,10 @@ def main(args):
         transforms.CenterCrop(args.img_size),
     ])
     train_dataset, train_sampler, train_loader = \
-        data.load_data(traindir, train_transform, args.batch_size,
+        data.load_data(args.train_data, train_transform, args.batch_size,
                        args.workers, memory_format)
     val_dataset, val_sampler, val_loader = \
-        data.load_data(valdir, val_transform, args.batch_size, args.workers,
+        data.load_data(args.val_data, val_transform, args.batch_size, args.workers,
                        memory_format, shuffle=False)
 
     if logger:

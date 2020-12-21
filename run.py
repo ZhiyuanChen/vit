@@ -52,11 +52,16 @@ def parse():
                         type=str,
                         help='name of profile files')
 
-    parser.add_argument('-d',
-                        '--data',
+    parser.add_argument('-td',
+                        '--train_data',
                         metavar='DIR',
-                        help='path to dataset',
-                        default='/mnt/lustre/share_data/ImageNet-Pytorch')
+                        help='path to train dataset',
+                        default='/mnt/lustre/share_data/imagenet22k')
+    parser.add_argument('-vd',
+                        '--val_data',
+                        metavar='DIR',
+                        help='path to validation dataset',
+                        default='/mnt/lustre/share_data/ImageNet-Pytorch/val')
     parser.add_argument('-a',
                         '--arch',
                         metavar='ARCH',
@@ -88,13 +93,13 @@ def parse():
                         help='image size to crop (default: 224)')
     parser.add_argument('-b',
                         '--batch_size',
-                        default=32,
+                        default=64,
                         type=int,
                         metavar='N',
                         help='mini-batch size per process (default: 16)')
     parser.add_argument('-as',
                         '--accum_steps',
-                        default=2,
+                        default=1,
                         type=int,
                         metavar='N',
                         help='gradient accumulation steps')
