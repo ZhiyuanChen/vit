@@ -31,9 +31,11 @@ def parse():
     mode.add_argument('-t', '--train', action='store_true')
     mode.add_argument('-v', '--validate', action='store_true',
                       help='validate model on validation set')
+    parser.add_argument('--log_dir', default='logs', type=str,
+                        help='directory of logs')
     parser.add_argument('-tb', '--tensorboard', action='store_true',
                         help='use tensorboard')
-    parser.add_argument('-ex', '--experiments', default='experiments',
+    parser.add_argument('-ed', '--experiment_dir', default='experiments',
                         type=str, help='directory of results')
 
     parser.add_argument('--profile', default=-1, type=int,
