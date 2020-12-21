@@ -12,12 +12,8 @@ comm = 'GLOG_logtostderr=-1 GLOG_vmodule=MemcachedClient=-1 MC_COUNT_DISP=100000
 
 
 def set_gpu(gpus):
-    if gpus < 8:
-        gres_gpu = 1
-        ntasks_per_node = 1
-    else:
-        gres_gpu = 8
-        ntasks_per_node = 8
+    gres_gpu = min(gpus, 8)
+    ntasks_per_node = min(gpus, 8)
     return gpus, gres_gpu, ntasks_per_node
 
 

@@ -67,12 +67,12 @@ def init(args):
                f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}' \
                f'-m{args.momentum}-wd{args.weight_decay}-{args.strategy}' \
                f'-ws{args.warmup_steps}-as{args.accum_steps}-{args.opt_level}'
-        experiment = os.path.join(args.experiments, name.strip('/'))
+        experiment = os.path.join(args.experiment_dir, name.strip('/'))
         if args.tensorboard:
             os.makedirs(experiment, exist_ok=True)
             writer = SummaryWriter(log_dir=experiment)
         if args.log_dir:
-            logger = setup_logger(args.logdir)
+            logger = setup_logger(args.log_dir)
         if args.train:
             save_dir = os.path.join(experiment, args.save_dir)
             os.makedirs(save_dir, exist_ok=True)

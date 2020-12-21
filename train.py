@@ -106,7 +106,7 @@ def main(args):
             train_sampler.set_epoch(epoch)
 
         train(train_loader, model, criterion, optimizer, scheduler, epoch,
-              args, writer)
+              args, logger, writer)
 
         acc1, acc5, loss = validate(val_loader, model, criterion, args)
         # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
