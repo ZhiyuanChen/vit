@@ -13,7 +13,9 @@ try:
     from apex import amp, optimizers
     from apex.multi_tensor_apply import multi_tensor_applier
 except ImportError:
-    raise ImportError("Please install apex from https://www.github.com/nvidia/apex to run this example.")
+    raise ImportError(
+        "Please install apex from https://www.github.com/nvidia/apex to run this example."
+    )
 
 from tqdm import tqdm
 
@@ -44,11 +46,15 @@ def main(args):
 
     model = model.cuda().to(memory_format=memory_format)
 
-    args.lr = args.lr * float(args.batch_size*args.world_size) * args.accum_steps / args.lr_factor
-    args.final_lr = args.final_lr * float(args.batch_size*args.world_size) * args.accum_steps / args.lr_factor
-    args.warmup_steps = args.warmup_steps / float(args.batch_size*args.world_size) * args.lr_factor
+    args.lr = args.lr * float(
+        args.batch_size * args.world_size) * args.accum_steps / args.lr_factor
+    args.final_lr = args.final_lr * float(
+        args.batch_size * args.world_size) * args.accum_steps / args.lr_factor
+    args.warmup_steps = args.warmup_steps / float(
+        args.batch_size * args.world_size) * args.lr_factor
 
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
+    optimizer = torch.optim.SGD(model.parameters(),
+                                args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
 
@@ -56,10 +62,11 @@ def main(args):
         resume(model, optimizer, args)
 
     model, optimizer = amp.initialize(
-        model, optimizer, opt_level=args.opt_level,
+        model,
+        optimizer,
+        opt_level=args.opt_level,
         keep_batchnorm_fp32=args.keep_batchnorm_fp32,
-        loss_scale=args.loss_scale
-    )
+        loss_scale=args.loss_scale)
 
     if args.distributed:
         model = DDP(model)
@@ -91,16 +98,19 @@ def main(args):
     log("length of traning dataset '{}'".format(len(train_loader)))
     log("length of validation dataset '{}'".format(len(val_loader)))
 
-    scheduler = LRScheduler(
-        optimizer, steps=args.epochs*len(train_loader), final_lr=args.final_lr,
-        strategy=args.strategy, warmup_steps=args.warmup_steps,
-        accum_steps=args.accum_steps)
+    scheduler = LRScheduler(optimizer,
+                            steps=args.epochs * len(train_loader),
+                            final_lr=args.final_lr,
+                            strategy=args.strategy,
+                            warmup_steps=args.warmup_steps,
+                            accum_steps=args.accum_steps)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
-        train(train_loader, model, criterion, optimizer, scheduler, epoch, args, writer)
+        train(train_loader, model, criterion, optimizer, scheduler, epoch,
+              args, writer)
 
         acc1, acc5, loss = validate(val_loader, model, criterion, args)
         # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
@@ -120,10 +130,11 @@ def main(args):
                     'state_dict': model.state_dict(),
                     'acc1': acc1,
                     'acc5': acc5,
-                    'optimizer' : optimizer.state_dict(),
-                    'scheduler' : scheduler.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'scheduler': scheduler.state_dict(),
                 }
                 save_checkpoint(state, is_best, save_dir, f'epoch-{epoch}.pth')
+
 
 def train(loader, model, criterion, optimizer, scheduler, epoch, args, writer):
     log('training {}'.format(epoch))
@@ -144,7 +155,9 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, writer):
         if args.profile >= 0 and iteration == args.profile:
             log("Profiling begun at iteration {}".format(iteration))
             torch.cuda.cudart().cudaProfilerStart()
-        if args.profile >= 0: torch.cuda.nvtx.range_push("Body of iteration {}".format(iteration))
+        if args.profile >= 0:
+            torch.cuda.nvtx.range_push(
+                "Body of iteration {}".format(iteration))
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("forward")
         output = model(images)
@@ -159,15 +172,18 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, writer):
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         if args.gradient_clip:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), args.gradient_clip)
+            torch.nn.utils.clip_grad_norm_(model.parameters(),
+                                           args.gradient_clip)
 
         if (iteration + 1) % args.accum_steps == 0:
-            if args.profile >= 0: torch.cuda.nvtx.range_push("optimizer.step()")
+            if args.profile >= 0:
+                torch.cuda.nvtx.range_push("optimizer.step()")
             optimizer.step()
             optimizer.zero_grad()
             if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
-            if args.profile >= 0: torch.cuda.nvtx.range_push("scheduler.step()")
+            if args.profile >= 0:
+                torch.cuda.nvtx.range_push("scheduler.step()")
             scheduler.step()
             if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
@@ -207,11 +223,16 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, writer):
                 'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                 'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                 'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    epoch, iteration, len(loader),
+                    epoch,
+                    iteration,
+                    len(loader),
                     # args.world_size*args.batch_size/batch_time.val,
                     # args.world_size*args.batch_size/batch_time.avg,
-                    lr=lr, batch_time=batch_time,
-                    loss=losses, top1=top1, top5=top5))
+                    lr=lr,
+                    batch_time=batch_time,
+                    loss=losses,
+                    top1=top1,
+                    top5=top5))
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("next(fetcher)")
         images, target = next(fetcher)
@@ -229,7 +250,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, writer):
 
 
 if __name__ == '__main__':
-    global args    
+    global args
     args = parse()
     log('\nArguments:')
     log('\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))

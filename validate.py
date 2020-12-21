@@ -13,7 +13,9 @@ try:
     from apex import amp, optimizers
     from apex.multi_tensor_apply import multi_tensor_applier
 except ImportError:
-    raise ImportError("Please install apex from https://www.github.com/nvidia/apex to run this example.")
+    raise ImportError(
+        "Please install apex from https://www.github.com/nvidia/apex to run this example."
+    )
 
 from tqdm import tqdm
 
@@ -50,10 +52,11 @@ def main(args):
         resume(model, args)
 
     model, optimizer = amp.initialize(
-        model, optimizer, opt_level=args.opt_level,
+        model,
+        optimizer,
+        opt_level=args.opt_level,
         keep_batchnorm_fp32=args.keep_batchnorm_fp32,
-        loss_scale=args.loss_scale
-    )
+        loss_scale=args.loss_scale)
 
     if args.distributed:
         model = DDP(model)
@@ -132,22 +135,25 @@ def validate(loader, model, criterion, args, writer=None):
                 'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                 'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                 'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                  iteration, len(loader),
-                  args.world_size * args.batch_size / batch_time.val,
-                  args.world_size * args.batch_size / batch_time.avg,
-                  batch_time=batch_time, loss=losses,
-                  top1=top1, top5=top5))
+                    iteration,
+                    len(loader),
+                    args.world_size * args.batch_size / batch_time.val,
+                    args.world_size * args.batch_size / batch_time.avg,
+                    batch_time=batch_time,
+                    loss=losses,
+                    top1=top1,
+                    top5=top5))
 
         images, target = next(fetcher)
 
-    log(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
-          .format(top1=top1, top5=top5))
+    log(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'.format(top1=top1,
+                                                              top5=top5))
 
     return top1.avg, top5.avg, losses.avg
 
 
 if __name__ == '__main__':
-    global args    
+    global args
     args = parse()
     log('\nArguments:')
     log('\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
