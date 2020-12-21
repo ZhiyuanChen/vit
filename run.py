@@ -96,13 +96,13 @@ def parse():
                         help='image size to crop (default: 224)')
     parser.add_argument('-b',
                         '--batch_size',
-                        default=16,
+                        default=32,
                         type=int,
                         metavar='N',
                         help='mini-batch size per process (default: 16)')
     parser.add_argument('-as',
                         '--accum_steps',
-                        default=16,
+                        default=2,
                         type=int,
                         metavar='N',
                         help='gradient accumulation steps')
