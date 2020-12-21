@@ -9,8 +9,7 @@ prof = 'nvprof --profile-child-processes --profile-from-start off -fo {}'
 
 comm = 'GLOG_logtostderr=-1 GLOG_vmodule=MemcachedClient=-1 MC_COUNT_DISP=1000000 \
         OMPI_MCA_btl_smcuda_use_cuda_ipc=0 OMPI_MCA_mpi_warn_on_fork=0  \
-        srun --mpi=pmi2 --job-name={} --partition={} -n {} --gres=gpu:{} --ntasks-per-node={} \
-        python -u {}.py'
+        srun --mpi=pmi2 --job-name={} --partition={} -n {} --gres=gpu:{} --ntasks-per-node={}'
 
 def set_gpu(gpus):
     if gpus < 8:
@@ -70,7 +69,7 @@ def parse():
     parser.add_argument('-sd', '--save_dir', default='checkpoints',
                         type=str, help='directory of saved_checkpoints')
 
-    parser.add_argument('-e', '--epochs', default=200, type=int, metavar='N',
+    parser.add_argument('-e', '--epochs', default=90, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('-se', '--start_epoch', default=0, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')
@@ -78,7 +77,7 @@ def parse():
                         help='momentum')
     parser.add_argument('-do', '--dropout', default=0.1, type=float, metavar='M',
                         help='drop out rate')
-    parser.add_argument('-ado', '--attn_dropout', default=0.0, type=float, metavar='M',
+    parser.add_argument('-ado', '--attn_dropout', default=0.1, type=float, metavar='M',
                         help='drop out rate for attention')
     parser.add_argument('-l', '--lr', default=0.01, type=float,
                         metavar='LR', help='base learning rate, scaled by total batch size / lr_factor')
@@ -88,11 +87,11 @@ def parse():
                         metavar='LR', help='final learning rate, scaled by total batch size / lr_factor')
     parser.add_argument('-m', '--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')
-    parser.add_argument('-wd', '--weight_decay', default=0.3, type=float,
-                        metavar='W', help='weight decay (default: 0.3)')
+    parser.add_argument('-wd', '--weight_decay', default=0.0001, type=float,
+                        metavar='W', help='weight decay (default: 0.0001)')
     parser.add_argument('-ls', '--strategy', default='cosine', type=str,
                         help='learning rate scaling strategy')
-    parser.add_argument('-ws', '--warmup_steps', default=10_000, type=int, metavar='N',
+    parser.add_argument('-ws', '--warmup_steps', default=5000, type=int, metavar='N',
                         help='number of warm up epochs to run')
     parser.add_argument('--deterministic', action='store_true')
 
@@ -129,7 +128,7 @@ if __name__ == '__main__':
 
     gpus, gres_gpu, ntasks_per_node = set_gpu(args.gpus)
     command = comm.format(
-        args.job_name, args.partition, gpus, gres_gpu, ntasks_per_node, mode)
+        args.job_name, args.partition, gpus, gres_gpu, ntasks_per_node)
 
     for k, v in vars(args).items():
         if v is None or k in ('train', 'validate') or (args.profile < 0 and 'profile' in k):
@@ -139,12 +138,12 @@ if __name__ == '__main__':
                 arguments.append(f'--{k}')
         else:
             arguments.append(f'--{k} {v}')
-    arguments = ' '.join(arguments)
     if args.profile >= 0:
         os.makedirs(args.profile_dir, exist_ok=True)
         command += ' ' + prof.format(
             os.path.join(args.profile_dir, args.profile_name))
-    command += ' ' + arguments
+    arguments = ' '.join(arguments)
+    command += f' python -u {mode}.py ' + arguments
     command = ' '.join(command.split())
     print(command)
     res = subprocess.run(command, shell=True)
