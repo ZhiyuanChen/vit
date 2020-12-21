@@ -71,15 +71,14 @@ def init(args):
         if args.tensorboard:
             os.makedirs(experiment, exist_ok=True)
             writer = SummaryWriter(log_dir=experiment)
-        if args.log_dir:
-            logger = setup_logger(args.log_dir)
+        logger = setup_logger(experiment)
         if args.train:
             save_dir = os.path.join(experiment, args.save_dir)
             os.makedirs(save_dir, exist_ok=True)
     return experiment, logger, writer, save_dir
 
 
-def setup_logger(log_dir):
+def setup_logger(experiment):
     """Creates and returns a fancy logger."""
     # Why is setting up proper logging so !@?#! ugly?
     os.makedirs(log_dir, exist_ok=True)
@@ -102,7 +101,7 @@ def setup_logger(log_dir):
                 'level': 'DEBUG',
                 'formatter': 'standard',
                 'class': 'logging.FileHandler',
-                'filename': os.path.join(log_dir, 'train.log'),
+                'filename': os.path.join(experiment, 'train.log'),
                 'mode': 'a',
             }
         },

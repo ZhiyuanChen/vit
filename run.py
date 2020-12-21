@@ -29,10 +29,6 @@ def parse():
                       '--validate',
                       action='store_true',
                       help='validate model on validation set')
-    parser.add_argument('--log_dir',
-                        default='logs',
-                        type=str,
-                        help='directory of logs')
     parser.add_argument('-tb',
                         '--tensorboard',
                         action='store_true',
