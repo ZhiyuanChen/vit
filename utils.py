@@ -70,7 +70,7 @@ def init(args):
         experiment = os.path.join(args.experiment_dir, name.strip('/'))
         if args.tensorboard:
             os.makedirs(experiment, exist_ok=True)
-            writer = SummaryWriter(log_dir=experiment)
+            writer = SummaryWriter(experiment)
         logger = setup_logger(experiment)
         if args.train:
             save_dir = os.path.join(experiment, args.save_dir)
@@ -81,7 +81,6 @@ def init(args):
 def setup_logger(experiment):
     """Creates and returns a fancy logger."""
     # Why is setting up proper logging so !@?#! ugly?
-    os.makedirs(log_dir, exist_ok=True)
     logging.config.dictConfig({
         'version': 1,
         'disable_existing_loggers': False,
