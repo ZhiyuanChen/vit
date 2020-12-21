@@ -71,7 +71,8 @@ def main(args):
     criterion = nn.CrossEntropyLoss().cuda()
 
     if logger:
-        logger.info("loading dataset '{}'".format(args.data))
+        logger.info("loading training set from '{}'".format(args.train_data))
+        logger.info("loading validation set from '{}'".format(args.val_data))
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop(args.img_size),
         transforms.RandomHorizontalFlip(),
