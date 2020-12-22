@@ -17,6 +17,9 @@ import numpy as np
 
 from utils import catch
 
+import warnings
+warnings.filterwarnings("ignore", "(Possibly )?corrupt EXIF data", UserWarning)
+
 
 class ImageFolder(datasets.ImageFolder):
     def __init__(self, *args, **kwargs):
