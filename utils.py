@@ -15,6 +15,19 @@ from torch.utils.tensorboard import SummaryWriter
 
 import subprocess
 
+from functools import wraps
+
+
+def catch(func, error=Exception):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            result = func(*args, **kwargs)
+            return result
+        except error as e:
+            print(error)
+    return wrapper
+
 
 def log(string, proc_id=0):
     if int(os.environ['SLURM_PROCID']) == proc_id:

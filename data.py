@@ -1,4 +1,6 @@
 import sys
+import os
+import random
 
 from io import BytesIO
 
@@ -13,6 +15,8 @@ import mc
 
 import numpy as np
 
+from utils import catch
+
 
 class ImageFolder(datasets.ImageFolder):
     def __init__(self, *args, **kwargs):
@@ -25,10 +29,16 @@ class ImageFolder(datasets.ImageFolder):
         self.client = mc.MemcachedClient.GetInstance(server_list, client)
 
     def _loader(self, path):
-        value = mc.pyvector()
-        self.client.Get(path, value)
-        buffer = mc.ConvertBuffer(value)
-        im = Image.open(BytesIO(buffer)).convert('RGB')
+        try:
+            value = mc.pyvector()
+            self.client.Get(path, value)
+            buffer = mc.ConvertBuffer(value)
+            im = Image.open(BytesIO(buffer)).convert('RGB')
+        except Exception as e:
+            folder = '/'.join(path.split('/')[:-1])
+            image = random.choice(os.listdir(folder))
+            path = os.path.join(folder, image)
+            im = self._loader(path)
         return im
 
 
