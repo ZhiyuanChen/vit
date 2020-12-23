@@ -102,7 +102,7 @@ class VisionTransformer(nn.Module):
     def __init__(self, img_size=384, patches=16, num_classes=1000,
                  hidden_size=1024, num_layers=12, num_heads=12, mlp_ratio=4,
                  attn_bias=True, attn_scale=None, dropout=0., attn_dropout=0.,
-                 norm_layer=nn.LayerNorm, pre_size=False, *args, **kwargs):
+                 norm_layer=nn.LayerNorm, pre_size=True, *args, **kwargs):
         super().__init__()
         self.num_classes = num_classes
         self.hidden_size = hidden_size
@@ -125,10 +125,6 @@ class VisionTransformer(nn.Module):
         nn.init.trunc_normal_(self.cls_token, std=.02)
         if isinstance(module, nn.Linear):
             nn.init.trunc_normal_(module.weight, std=.02)
-            if isinstance(module, nn.Linear):
-                nn.init.zeros_(module.weight)
-                if module.bias is not None:
-                    nn.init.zeros_(module.bias)
         elif isinstance(module, nn.LayerNorm):
             nn.init.zeros_(module.bias)
             nn.init.ones_(module.weight)
