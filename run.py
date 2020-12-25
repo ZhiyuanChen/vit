@@ -156,25 +156,23 @@ def parse():
                         type=float,
                         metavar='M',
                         help='drop out rate for attention')
-    parser.add_argument(
-        '-l',
-        '--lr',
-        default=0.01,
-        type=float,
-        metavar='LR',
-        help='base learning rate, scaled by total batch size / lr_factor')
+    parser.add_argument('-l',
+                        '--lr',
+                        default=0.01,
+                        type=float,
+                        metavar='LR',
+                        help='base learning rate, scaled by total batch size / lr_factor')
     parser.add_argument('-lrf',
                         '--lr_factor',
                         default=4096.0,
                         type=float,
                         help='scale learning rate')
-    parser.add_argument(
-        '-flr',
-        '--final_lr',
-        default=1e-5,
-        type=float,
-        metavar='LR',
-        help='final learning rate, scaled by total batch size / lr_factor')
+    parser.add_argument('-flr',
+                        '--final_lr',
+                        default=1e-5,
+                        type=float,
+                        metavar='LR',
+                        help='final learning rate, scaled by total batch size / lr_factor')
     parser.add_argument('-m',
                         '--momentum',
                         default=0.9,
@@ -241,8 +239,7 @@ if __name__ == '__main__':
                           ntasks_per_node)
 
     for k, v in vars(args).items():
-        if v is None or k in ('train', 'validate') or (args.profile < 0
-                                                       and 'profile' in k):
+        if v is None or k in ('train', 'validate'):
             continue
         elif type(v) is bool:
             if v:
