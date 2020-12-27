@@ -123,10 +123,11 @@ class VisionTransformer(nn.Module):
 
     def _init(self, module):
         if isinstance(module, nn.Linear):
-            nn.init.xavier_uniform_(module.weight, std=0.02)
-            nn.init.normal(module.bias, std=1e-6)
+            nn.init.xavier_uniform_(module.weight)
+            nn.init.normal_(module.bias, std=1e-6)
         nn.init.zeros_(self.cls_token)
-        nn.init.zeros_(self.head)
+        nn.init.zeros_(self.head.weight)
+        nn.init.zeros_(self.head.bias)
         # elif isinstance(module, nn.LayerNorm):
         #     nn.init.ones_(module.weight)
         #     nn.init.zeros_(module.bias)
