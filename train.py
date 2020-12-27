@@ -246,6 +246,8 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
     optimizer.step()
     optimizer.zero_grad()
 
+    return top1.avg, top5.acg, loss.avg
+
 
 if __name__ == '__main__':
     global args
