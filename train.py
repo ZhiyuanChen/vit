@@ -103,10 +103,9 @@ def main(args):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
-        train(train_loader, model, criterion, optimizer, scheduler, epoch,
-              args, logger, writer)
+        acc1, acc5, loss = train(train_loader, model, criterion, optimizer,
+              scheduler, epoch, args, logger, writer)
 
-        acc1, acc5, loss = validate(val_loader, model, criterion, args)
         # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
         if writer:
             writer.add_scalar('validate/loss', loss, epoch)
