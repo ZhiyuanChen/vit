@@ -88,7 +88,7 @@ class Encoder(nn.Module):
         self.apply(self._init)
 
     def _init(self, module):
-        nn.init.trunc_normal_(self.pos_embed, std=.02)
+        nn.init.normal_(self.pos_embed, std=0.02)
 
     def forward(self, x):
         x = x + self.pos_embed
@@ -122,12 +122,14 @@ class VisionTransformer(nn.Module):
         self.apply(self._init)
 
     def _init(self, module):
-        nn.init.trunc_normal_(self.cls_token, std=.02)
         if isinstance(module, nn.Linear):
-            nn.init.trunc_normal_(module.weight, std=.02)
-        elif isinstance(module, nn.LayerNorm):
-            nn.init.zeros_(module.bias)
-            nn.init.ones_(module.weight)
+            nn.init.xavier_uniform_(module.weight, std=0.02)
+            nn.init.normal(module.bias, std=1e-6)
+        nn.init.zeros_(self.cls_token)
+        nn.init.zeros_(self.head)
+        # elif isinstance(module, nn.LayerNorm):
+        #     nn.init.ones_(module.weight)
+        #     nn.init.zeros_(module.bias)
 
     def forward(self, x):
         B = x.shape[0]
