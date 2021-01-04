@@ -26,14 +26,16 @@ from run import parse
 
 
 def main(args):
-    global best_acc1
-    best_acc1, writer = 0, None
-    _experiment, _writer, _save_dir = init(args)
-    if _writer is not None:
-        writer = _writer
+    global best_acc1, experiment, logger, writer, save_dir
+    best_acc1 = 0
+    init(args)
+
+    print('\nArguments:')
+    print('\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
+
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
-    log("creating model '{}'".format(args.arch))
+    print("creating model '{}'".format(args.arch))
     model = models.__dict__[args.arch](**args)
 
     checkpoint = torch.load(args.checkpoint)
@@ -41,7 +43,7 @@ def main(args):
 
     if args.sync_bn:
         import apex
-        log("using apex synced BN")
+        print("using apex synced BN")
         model = apex.parallel.convert_syncbn_model(model)
 
     model = model.cuda().to(memory_format=memory_format)
@@ -68,7 +70,7 @@ def main(args):
     crop_size = 384
     val_size = 384
 
-    log("loading dataset '{}'".format(args.data))
+    print("loading dataset '{}'".format(args.data))
     val_transform = transforms.Compose([
         transforms.Resize(val_size),
         transforms.CenterCrop(crop_size),
@@ -77,13 +79,14 @@ def main(args):
         data.load_data(valdir, val_transform, args.batch_size, args.workers,
                        memory_format, shuffle=False)
 
-    log("length of validation dataset '{}'".format(len(val_loader)))
+    print("length of validation dataset '{}'".format(len(val_loader)))
 
     validate(val_loader, model, criterion, args, writer)
 
 
-def validate(loader, model, criterion, args, writer=None):
-    log('evaluating')
+def validate(loader, model, criterion, args):
+    global logger, writer
+    print('evaluating')
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -129,7 +132,7 @@ def validate(loader, model, criterion, args, writer=None):
 
         # TODO:  Change timings to mirror train().
         if iteration % args.print_freq == 0:
-            log('Test: [{0}/{1}]\t'
+            print('Test: [{0}/{1}]\t'
                 'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
                 # 'Speed {2:.3f} ({3:.3f})\t'
                 'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
@@ -146,7 +149,7 @@ def validate(loader, model, criterion, args, writer=None):
 
         images, target = next(fetcher)
 
-    log(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'.format(top1=top1,
+    print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'.format(top1=top1,
                                                               top5=top5))
 
     return top1.avg, top5.avg, losses.avg
@@ -155,8 +158,5 @@ def validate(loader, model, criterion, args, writer=None):
 if __name__ == '__main__':
     global args
     args = parse()
-    log('\nArguments:')
-    log('\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
-    log('\n')
 
     main(args)
