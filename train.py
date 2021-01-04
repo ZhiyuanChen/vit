@@ -27,19 +27,21 @@ from run import parse
 
 
 def main(args):
-    global best_acc1
+    global best_acc1, experiment, logger, writer, save_dir
     best_acc1 = 0
-    experiment, logger, writer, save_dir = init(args)
+    init(args)
+
+    print('\nArguments:')
+    print('\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
+
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
-    if logger:
-        logger.info("creating model '{}'".format(args.arch))
+    print("creating model '{}'".format(args.arch))
     model = models.__dict__[args.arch](**vars(args))
 
     if args.sync_bn:
         import apex
-        if logger:
-            logger.info("using apex synced BN")
+        print("using apex synced BN")
         model = apex.parallel.convert_syncbn_model(model)
 
     model = model.cuda().to(memory_format=memory_format)
@@ -70,9 +72,8 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss().cuda()
 
-    if logger:
-        logger.info("loading training set from '{}'".format(args.train_data))
-        logger.info("loading validation set from '{}'".format(args.val_data))
+    print("loading training set from '{}'".format(args.train_data))
+    print("loading validation set from '{}'".format(args.val_data))
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop(args.img_size),
         transforms.RandomHorizontalFlip(),
@@ -88,9 +89,8 @@ def main(args):
         data.load_data(args.val_data, val_transform, args.batch_size, args.workers,
                        memory_format, shuffle=False)
 
-    if logger:
-        logger.info("length of traning dataset '{}'".format(len(train_loader)))
-        logger.info("length of validation dataset '{}'".format(len(val_loader)))
+    print("length of traning dataset '{}'".format(len(train_loader)))
+    print("length of validation dataset '{}'".format(len(val_loader)))
 
     scheduler = LRScheduler(optimizer,
                             steps=args.epochs * len(train_loader),
@@ -104,7 +104,7 @@ def main(args):
             train_sampler.set_epoch(epoch)
 
         acc1, acc5, loss = train(train_loader, model, criterion, optimizer,
-              scheduler, epoch, args, logger, writer)
+              scheduler, epoch, args)
 
         # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
         if writer:
@@ -129,9 +129,9 @@ def main(args):
                 save_checkpoint(state, is_best, save_dir, f'epoch-{epoch}.pth')
 
 
-def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=None, writer=None):
-    if logger:
-        logger.info('training {}'.format(epoch))
+def train(loader, model, criterion, optimizer, scheduler, epoch, args):
+    global writer
+    print('training {}'.format(epoch))
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -147,8 +147,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
     while images is not None:
         iteration += 1
         if 0 <= args.profile == iteration:
-            if logger:
-                logger.info("Profiling begun at iteration {}".format(iteration))
+            print("Profiling begun at iteration {}".format(iteration))
             torch.cuda.cudart().cudaProfilerStart()
         if args.profile >= 0:
             torch.cuda.nvtx.range_push(
@@ -211,14 +210,13 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
                 writer.add_scalar('train/acc5', top5.val, total_iter)
                 writer.add_scalar('train/lr', lr, total_iter)
 
-            if logger:
-                logger.info('Epoch: [{0}][{1}/{2}]\t'
-                            'LR {lr:.6f}\t'
-                            'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
+                print('Epoch: [{0}][{1}/{2}]\t'
+                      'LR {lr:.6f}\t'
+                      'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
                 # 'Speed {3:.3f} ({4:.3f})\t'
-                            'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                            'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                            'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                      'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
                     epoch,
                     iteration,
                     len(loader),
@@ -237,8 +235,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         if args.profile >= 0 and iteration == args.profile + 100:
-            if logger:
-                logger.info("Profiling ended at iteration {}".format(iteration))
+            print("Profiling ended at iteration {}".format(iteration))
             torch.cuda.cudart().cudaProfilerStop()
             quit()
 
@@ -251,7 +248,5 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
 if __name__ == '__main__':
     global args
     args = parse()
-    log('\nArguments:')
-    log('\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
 
     main(args)

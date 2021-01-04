@@ -33,6 +33,10 @@ def parse():
                         '--tensorboard',
                         action='store_true',
                         help='use tensorboard')
+    parser.add_argument('-log',
+                        '--log',
+                        action='store_true',
+                        help='use logger')
     parser.add_argument('-ed',
                         '--experiment_dir',
                         default='experiments',
@@ -220,7 +224,7 @@ def parse():
                         metavar='N',
                         help='number of data loading workers (default: 64)')
 
-    parser.set_defaults(train=True, tensorboard=True, slurm=True)
+    parser.set_defaults(train=True, tensorboard=True, logger=True, slurm=True)
     args, unknown = parser.parse_known_args()
     return args
 

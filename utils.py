@@ -29,11 +29,6 @@ def catch(func, error=Exception):
     return wrapper
 
 
-def log(string, proc_id=0):
-    if int(os.environ['SLURM_PROCID']) == proc_id:
-        print(string)
-
-
 def init(args):
     proc_id = 0
     if args.slurm:
@@ -72,10 +67,12 @@ def init(args):
                                              init_method='env://')
         args.world_size = torch.distributed.get_world_size()
 
-    assert torch.backends.cudnn.enabled, "Amp requires cudnn backend to be enabled."
+        assert torch.backends.cudnn.enabled, "Amp requires cudnn backend to be enabled."
 
-    experiment, logger, writer, save_dir = None, None, None, None
+    # proc_id is default to be 0 in case of not distributed
     if proc_id == 0:
+        global experiment, logger, writer, save_dir
+        logger, writer, save_dir = None, None, None
         name = f'{args.arch}-g{args.gpus}-b{args.batch_size}-e{args.epochs}' \
                f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}' \
                f'-m{args.momentum}-wd{args.weight_decay}-{args.strategy}' \
@@ -84,11 +81,26 @@ def init(args):
         if args.tensorboard:
             os.makedirs(experiment, exist_ok=True)
             writer = SummaryWriter(experiment)
-        logger = setup_logger(experiment)
+        if args.logger:
+            logger = setup_logger(experiment)
         if args.train:
             save_dir = os.path.join(experiment, args.save_dir)
             os.makedirs(save_dir, exist_ok=True)
-    return experiment, logger, writer, save_dir
+
+    setup_print(proc_id)
+
+
+def setup_print(proc_id):
+    global logger
+    import builtins as __builtin__
+    builtin_print = __builtin__.print
+
+    def print(*args, **kwargs):
+        force = kwargs.pop('force', False)
+        if proc_id == 0 or force:
+            logger.info(*args, **kwargs) if logger else builtin_print(*args, **kwargs)
+
+    __builtin__.print = print
 
 
 def setup_logger(experiment):
