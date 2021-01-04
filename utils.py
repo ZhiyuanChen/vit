@@ -70,24 +70,25 @@ def init(args):
         assert torch.backends.cudnn.enabled, "Amp requires cudnn backend to be enabled."
 
     # proc_id is default to be 0 in case of not distributed
+    global best_acc1, experiment, logger, writer, save_dir
+    best_acc1, experiment, logger, writer, save_dir = 0, None, None, None, None
+    name = f'{args.arch}-g{args.gpus}-b{args.batch_size}-e{args.epochs}' \
+           f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}' \
+           f'-m{args.momentum}-wd{args.weight_decay}-{args.strategy}' \
+           f'-ws{args.warmup_steps}-as{args.accum_steps}-{args.opt_level}'
+    experiment = os.path.join(args.experiment_dir, name.strip('/'))
+    save_dir = os.path.join(experiment, args.save_dir)
     if proc_id == 0:
-        global experiment, logger, writer, save_dir
-        logger, writer, save_dir = None, None, None
-        name = f'{args.arch}-g{args.gpus}-b{args.batch_size}-e{args.epochs}' \
-               f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}' \
-               f'-m{args.momentum}-wd{args.weight_decay}-{args.strategy}' \
-               f'-ws{args.warmup_steps}-as{args.accum_steps}-{args.opt_level}'
-        experiment = os.path.join(args.experiment_dir, name.strip('/'))
         if args.tensorboard:
             os.makedirs(experiment, exist_ok=True)
             writer = SummaryWriter(experiment)
         if args.logger:
             logger = setup_logger(experiment)
         if args.train:
-            save_dir = os.path.join(experiment, args.save_dir)
             os.makedirs(save_dir, exist_ok=True)
 
     setup_print(proc_id)
+    return best_acc1, experiment, logger, writer, save_dir
 
 
 def setup_print(proc_id):

@@ -28,11 +28,9 @@ from run import parse
 
 def main(args):
     global best_acc1, experiment, logger, writer, save_dir
-    best_acc1 = 0
-    init(args)
+    best_acc1, experiment, logger, writer, save_dir = init(args)
 
-    print('\nArguments:')
-    print('\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
+    print('\nArguments:' + '\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
 
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
