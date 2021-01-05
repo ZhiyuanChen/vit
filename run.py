@@ -160,6 +160,12 @@ def parse():
                         type=float,
                         metavar='M',
                         help='drop out rate for attention')
+
+    parser.add_argument('-o',
+                        '--optimizer',
+                        default='AdamW',
+                        type=str,
+                        help='Optimizer to use')
     parser.add_argument('-l',
                         '--lr',
                         default=0.01,
