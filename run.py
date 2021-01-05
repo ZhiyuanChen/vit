@@ -197,7 +197,7 @@ def parse():
                         help='weight decay (default: 0.0001)')
     parser.add_argument('-ls',
                         '--strategy',
-                        default='cosine',
+                        default='linear',
                         type=str,
                         help='learning rate scaling strategy')
     parser.add_argument('-ws',
