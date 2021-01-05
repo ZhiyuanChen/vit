@@ -50,9 +50,15 @@ def main(args):
     args.final_lr = args.final_lr * scale_factor
     args.warmup_steps = args.warmup_steps // scale_factor
 
-    optimizer = getattr(torch.optim, args.optimizer)(
-                    model.parameters(), args.lr, momentum=args.momentum,
-                    weight_decay=args.weight_decay)
+    if args.optimizer in ('SGD', 'RMSprop'):
+        optimizer = getattr(torch.optim, args.optimizer)(
+                        model.parameters(), args.lr, momentum=args.momentum,
+                        weight_decay=args.weight_decay)
+    else:
+        optimizer = getattr(torch.optim, args.optimizer)(
+                        model.parameters(), args.lr,
+                        weight_decay=args.weight_decay)
+                        
 
     if args.resume:
         resume(model, optimizer, args)
