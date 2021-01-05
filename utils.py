@@ -73,9 +73,10 @@ def init(args):
     global best_acc1, experiment, logger, writer, save_dir
     best_acc1, experiment, logger, writer, save_dir = 0, None, None, None, None
     name = f'{args.arch}-g{args.gpus}-b{args.batch_size}-e{args.epochs}' \
-           f'-d{args.dropout}-gc{args.gradient_clip}-lr{args.lr}' \
-           f'-m{args.momentum}-wd{args.weight_decay}-{args.strategy}' \
-           f'-ws{args.warmup_steps}-as{args.accum_steps}-{args.opt_level}'
+           f'-d{args.dropout}-gc{args.gradient_clip}-o{args.optimizer}' \
+           f'-lr{args.lr}-m{args.momentum}-wd{args.weight_decay}' \
+           f'-{args.strategy}-ws{args.warmup_steps}-as{args.accum_steps}' \
+           f'-{args.opt_level}'
     experiment = os.path.join(args.experiment_dir, name.strip('/'))
     save_dir = os.path.join(experiment, args.save_dir)
     if proc_id == 0:
