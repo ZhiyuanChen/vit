@@ -160,9 +160,15 @@ def parse():
                         type=float,
                         metavar='M',
                         help='drop out rate for attention')
+
+    parser.add_argument('-o',
+                        '--optimizer',
+                        default='AdamW',
+                        type=str,
+                        help='Optimizer to use')
     parser.add_argument('-l',
                         '--lr',
-                        default=0.01,
+                        default=5e-4,
                         type=float,
                         metavar='LR',
                         help='base learning rate, scaled by total batch size / lr_factor')
@@ -191,7 +197,7 @@ def parse():
                         help='weight decay (default: 0.0001)')
     parser.add_argument('-ls',
                         '--strategy',
-                        default='cosine',
+                        default='linear',
                         type=str,
                         help='learning rate scaling strategy')
     parser.add_argument('-ws',
