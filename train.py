@@ -79,7 +79,7 @@ def main(args):
 
     print("loading training set from '{}'".format(args.train_data))
     print("loading validation set from '{}'".format(args.val_data))
-    color_jitter = (float(args.color_jitter),) * 3
+    # color_jitter = (float(args.color_jitter),) * 3
     # train_transform = transforms.Compose([
     #     transforms.RandomResizedCrop(args.img_size),
     #     transforms.RandomHorizontalFlip(),
@@ -97,10 +97,18 @@ def main(args):
         re_mode=args.random_erase_mode,
         re_count=args.random_erase_count,
     )
+    train_transform.transforms = train_transform.transforms[:-1]
     val_transform = transforms.Compose([
         transforms.Resize(args.img_size),
         transforms.CenterCrop(args.img_size),
     ])
+    #val_transform = create_transform(
+    #    input_size=args.img_size,
+    #    is_training=False,
+    #    use_prefetcher=True,
+    #    interpolation=args.train_interpolation,
+    #)
+
     train_dataset, train_sampler, train_loader = \
         data.load_data(args.train_data, train_transform, args.batch_size,
                        args.workers, memory_format)
@@ -124,6 +132,7 @@ def main(args):
 
         acc1, acc5, loss = train(train_loader, model, criterion, optimizer,
               scheduler, epoch, args)
+        # acc1, acc5, loss = validate(val_loader, model, criterion, args)
 
         # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
         if writer:

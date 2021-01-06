@@ -79,7 +79,7 @@ def main(args):
 
     print("length of validation dataset '{}'".format(len(val_loader)))
 
-    validate(val_loader, model, criterion, args, writer)
+    validate(val_loader, model, criterion, args)
 
 
 def validate(loader, model, criterion, args):
