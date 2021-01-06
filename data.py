@@ -8,6 +8,7 @@ from PIL import Image
 
 import torch
 import torch.nn as nn
+import torch.distributed as dist
 import torchvision.datasets as datasets
 
 sys.path.append(r'/mnt/lustre/share/pymc/py3')
@@ -19,6 +20,13 @@ from utils import catch
 
 import warnings
 warnings.filterwarnings("ignore", "(Possibly )?corrupt EXIF data", UserWarning)
+
+
+def to_python_float(t):
+    if hasattr(t, 'item'):
+        return t.item()
+    else:
+        return t[0]
 
 
 class ImageFolder(datasets.ImageFolder):
@@ -43,13 +51,6 @@ class ImageFolder(datasets.ImageFolder):
             path = os.path.join(folder, image)
             im = self._loader(path)
         return im
-
-
-def to_python_float(t):
-    if hasattr(t, 'item'):
-        return t.item()
-    else:
-        return t[0]
 
 
 class DataFetcher(object):
@@ -90,6 +91,60 @@ class DataFetcher(object):
         return input, target
 
 
+class RASampler(torch.utils.data.Sampler):
+    """Sampler that restricts data loading to a subset of the dataset for distributed,
+    with repeated augmentation.
+    It ensures that different each augmented version of a sample will be visible to a
+    different process (GPU)
+    Heavily based on torch.utils.data.DistributedSampler
+    """
+
+    def __init__(self, dataset, num_replicas=None, rank=None, shuffle=True):
+        if num_replicas is None:
+            if not dist.is_available():
+                raise RuntimeError("Requires distributed package to be available")
+            num_replicas = dist.get_world_size()
+        if rank is None:
+            if not dist.is_available():
+                raise RuntimeError("Requires distributed package to be available")
+            rank = dist.get_rank()
+        self.dataset = dataset
+        self.num_replicas = num_replicas
+        self.rank = rank
+        self.epoch = 0
+        self.num_samples = int(math.ceil(len(self.dataset) * 3.0 / self.num_replicas))
+        self.total_size = self.num_samples * self.num_replicas
+        # self.num_selected_samples = int(math.ceil(len(self.dataset) / self.num_replicas))
+        self.num_selected_samples = int(math.floor(len(self.dataset) // 256 * 256 / self.num_replicas))
+        self.shuffle = shuffle
+
+    def __iter__(self):
+        # deterministically shuffle based on epoch
+        g = torch.Generator()
+        g.manual_seed(self.epoch)
+        if self.shuffle:
+            indices = torch.randperm(len(self.dataset), generator=g).tolist()
+        else:
+            indices = list(range(len(self.dataset)))
+
+        # add extra samples to make it evenly divisible
+        indices = [ele for ele in indices for i in range(3)]
+        indices += indices[:(self.total_size - len(indices))]
+        assert len(indices) == self.total_size
+
+        # subsample
+        indices = indices[self.rank:self.total_size:self.num_replicas]
+        assert len(indices) == self.num_samples
+
+        return iter(indices[:self.num_selected_samples])
+
+    def __len__(self):
+        return self.num_selected_samples
+
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+
+
 def fast_collate(batch, memory_format):
     imgs = [img[0] for img in batch]
     targets = torch.tensor([target[1] for target in batch], dtype=torch.int64)
@@ -122,3 +177,36 @@ def load_data(path, transform, batch_size, num_workers, memory_format, shuffle=N
     )
 
     return dataset, sampler, loader
+
+def build_transform(is_train, args):
+    resize_im = args.input_size > 32
+    if is_train:
+        # this should always dispatch to transforms_imagenet_train
+        transform = create_transform(
+            input_size=args.input_size,
+            is_training=True,
+            color_jitter=args.color_jitter,
+            auto_augment=args.aa,
+            interpolation=args.train_interpolation,
+            re_prob=args.reprob,
+            re_mode=args.remode,
+            re_count=args.recount,
+        )
+        if not resize_im:
+            # replace RandomResizedCropAndInterpolation with
+            # RandomCrop
+            transform.transforms[0] = transforms.RandomCrop(
+                args.input_size, padding=4)
+        return transform
+
+    t = []
+    if resize_im:
+        size = int((256 / 224) * args.input_size)
+        t.append(
+            transforms.Resize(size, interpolation=3),  # to maintain same ratio w.r.t. 224 images
+        )
+        t.append(transforms.CenterCrop(args.input_size))
+
+    t.append(transforms.ToTensor())
+    t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
+    return transforms.Compose(t)

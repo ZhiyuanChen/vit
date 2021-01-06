@@ -29,6 +29,7 @@ def parse():
                       '--validate',
                       action='store_true',
                       help='validate model on validation set')
+
     parser.add_argument('-tb',
                         '--tensorboard',
                         action='store_true',
@@ -42,6 +43,23 @@ def parse():
                         default='experiments',
                         type=str,
                         help='directory of results')
+    parser.add_argument('-pf',
+                        '--print_freq',
+                        default=100,
+                        type=int,
+                        metavar='N',
+                        help='print frequency (default: 100)')
+    parser.add_argument('-sf',
+                        '--save_freq',
+                        default=10,
+                        type=int,
+                        metavar='N',
+                        help='save frequency (default: 10)')
+    parser.add_argument('-sd',
+                        '--save_dir',
+                        default='checkpoints',
+                        type=str,
+                        help='directory of saved_checkpoints')
 
     parser.add_argument('--profile',
                         default=-1,
@@ -100,54 +118,6 @@ def parse():
                         type=int,
                         metavar='N',
                         help='image size to crop (default: 224)')
-    parser.add_argument('-b',
-                        '--batch_size',
-                        default=64,
-                        type=int,
-                        metavar='N',
-                        help='mini-batch size per process (default: 16)')
-    parser.add_argument('-as',
-                        '--accum_steps',
-                        default=1,
-                        type=int,
-                        metavar='N',
-                        help='gradient accumulation steps')
-    parser.add_argument('-pf',
-                        '--print_freq',
-                        default=100,
-                        type=int,
-                        metavar='N',
-                        help='print frequency (default: 100)')
-    parser.add_argument('-sf',
-                        '--save_freq',
-                        default=10,
-                        type=int,
-                        metavar='N',
-                        help='save frequency (default: 10)')
-    parser.add_argument('-sd',
-                        '--save_dir',
-                        default='checkpoints',
-                        type=str,
-                        help='directory of saved_checkpoints')
-
-    parser.add_argument('-e',
-                        '--epochs',
-                        default=90,
-                        type=int,
-                        metavar='N',
-                        help='number of total epochs to run')
-    parser.add_argument('-se',
-                        '--start_epoch',
-                        default=0,
-                        type=int,
-                        metavar='N',
-                        help='manual epoch number (useful on restarts)')
-    parser.add_argument('-gc',
-                        '--gradient_clip',
-                        default=1.0,
-                        type=float,
-                        metavar='M',
-                        help='momentum')
     parser.add_argument('-do',
                         '--dropout',
                         default=0.1,
@@ -161,11 +131,37 @@ def parse():
                         metavar='M',
                         help='drop out rate for attention')
 
+    parser.add_argument('-b',
+                        '--batch_size',
+                        default=64,
+                        type=int,
+                        metavar='N',
+                        help='mini-batch size per process (default: 16)')
+    parser.add_argument('-as',
+                        '--accum_steps',
+                        default=1,
+                        type=int,
+                        metavar='N',
+                        help='gradient accumulation steps')
+    parser.add_argument('-e',
+                        '--epochs',
+                        default=90,
+                        type=int,
+                        metavar='N',
+                        help='number of total epochs to run')
+    parser.add_argument('-se',
+                        '--start_epoch',
+                        default=0,
+                        type=int,
+                        metavar='N',
+                        help='manual epoch number (useful on restarts)')
+
     parser.add_argument('-o',
                         '--optimizer',
+                        metavar='OPTIMIZER',
                         default='AdamW',
                         type=str,
-                        help='Optimizer to use')
+                        help='Optimizer (default: "AdamW"')
     parser.add_argument('-l',
                         '--lr',
                         default=5e-4,
@@ -206,7 +202,40 @@ def parse():
                         type=int,
                         metavar='N',
                         help='number of warm up epochs to run')
+    parser.add_argument('-gc',
+                        '--gradient_clip',
+                        default=1.0,
+                        type=float,
+                        metavar='M',
+                        help='momentum')
     parser.add_argument('--deterministic', action='store_true')
+
+    parser.add_argument('-cj',
+                        '--color_jitter',
+                        type=float,
+                        default=0.4,
+                        metavar='PCT',
+                        help='Color jitter factor (default: 0.4)')
+    parser.add_argument('-aa'
+                        '--auto_augment', type=str,
+                        default='rand-m9-mstd0.5-inc1',
+                        metavar='NAME',
+                        help='Use AutoAugment policy. "v0" or "original". " + \
+                             "(default: rand-m9-mstd0.5-inc1)'),
+    parser.add_argument('-sm'
+                        '--smoothing',
+                        type=float,
+                        default=0.1,
+                        help='Label smoothing (default: 0.1)')
+    parser.add_argument('-ti'
+                        '--train_interpolation',
+                        type=str,
+                        default='bicubic',
+                        help='Training interpolation (random, bilinear, bicubic default: "bicubic")')
+    parser.add_argument('-ra',
+                        '--repeated_aug',
+                        action='store_true',
+                        help='use repeated augmentation')
 
     parser.add_argument("--local_rank", default=0, type=int)
     parser.add_argument('--sync_bn',
@@ -230,7 +259,7 @@ def parse():
                         metavar='N',
                         help='number of data loading workers (default: 64)')
 
-    parser.set_defaults(train=True, tensorboard=True, logger=True, slurm=True)
+    parser.set_defaults(train=True, repeated_aug=True, tensorboard=True, logger=True, slurm=True)
     args, unknown = parser.parse_known_args()
     return args
 
