@@ -28,11 +28,9 @@ from run import parse
 
 def main(args):
     global best_acc1, experiment, logger, writer, save_dir
-    best_acc1 = 0
-    init(args)
+    best_acc1, experiment, logger, writer, save_dir = init(args)
 
-    print('\nArguments:')
-    print('\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
+    print('\nArguments:' + '\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
 
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
@@ -52,10 +50,15 @@ def main(args):
     args.final_lr = args.final_lr * scale_factor
     args.warmup_steps = args.warmup_steps // scale_factor
 
-    optimizer = torch.optim.SGD(model.parameters(),
-                                args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
+    if args.optimizer in ('SGD', 'RMSprop'):
+        optimizer = getattr(torch.optim, args.optimizer)(
+                        model.parameters(), args.lr, momentum=args.momentum,
+                        weight_decay=args.weight_decay)
+    else:
+        optimizer = getattr(torch.optim, args.optimizer)(
+                        model.parameters(), args.lr,
+                        weight_decay=args.weight_decay)
+                        
 
     if args.resume:
         resume(model, optimizer, args)
