@@ -168,7 +168,7 @@ def parse():
                         help='Optimizer to use')
     parser.add_argument('-l',
                         '--lr',
-                        default=0.01,
+                        default=5e-4,
                         type=float,
                         metavar='LR',
                         help='base learning rate, scaled by total batch size / lr_factor')
