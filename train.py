@@ -21,9 +21,11 @@ from tqdm import tqdm
 
 import models
 import data
+import autoaugment
 from validate import validate
 from utils import *
 from run import parse
+from timm.data import create_transform
 
 
 def main(args):
@@ -77,10 +79,24 @@ def main(args):
 
     print("loading training set from '{}'".format(args.train_data))
     print("loading validation set from '{}'".format(args.val_data))
-    train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(args.img_size),
-        transforms.RandomHorizontalFlip(),
-    ])
+    color_jitter = (float(args.color_jitter),) * 3
+    # train_transform = transforms.Compose([
+    #     transforms.RandomResizedCrop(args.img_size),
+    #     transforms.RandomHorizontalFlip(),
+    #     transforms.ColorJitter(*color_jitter),
+    #     getattr(autoaugment, 'ImageNet')
+    # ])
+    train_transform = create_transform(
+        input_size=args.img_size,
+        is_training=True,
+        use_prefetcher=True,
+        color_jitter=args.color_jitter,
+        auto_augment=args.auto_augment,
+        interpolation=args.train_interpolation,
+        re_prob=args.random_erase_prob,
+        re_mode=args.random_erase_mode,
+        re_count=args.random_erase_count,
+    )
     val_transform = transforms.Compose([
         transforms.Resize(args.img_size),
         transforms.CenterCrop(args.img_size),
