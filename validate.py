@@ -82,6 +82,7 @@ def main(args):
     validate(val_loader, model, criterion, args, writer)
 
 
+@torch.no_grad()
 def validate(loader, model, criterion, args):
     global logger, writer
     print('evaluating')
