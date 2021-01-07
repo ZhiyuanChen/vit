@@ -26,6 +26,7 @@ from validate import validate
 from utils import *
 from run import parse
 from timm.data import create_transform, Mixup
+from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 
 
 def main(args):
@@ -83,7 +84,12 @@ def main(args):
     if args.distributed:
         model = DDP(model)
 
-    criterion = nn.CrossEntropyLoss().cuda()
+    criterion = nn.CrossEntropyLoss()
+    if args.mixup > 0.:
+        criterion = SoftTargetCrossEntropy()
+    elif args.smoothing:
+        criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
+    criterion.cuda()
 
     print("loading training set from '{}'".format(args.train_data))
     print("loading validation set from '{}'".format(args.val_data))
