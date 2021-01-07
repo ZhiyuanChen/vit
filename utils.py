@@ -5,12 +5,12 @@ import logging.config
 import math
 
 import numpy as np
+from scipy.ndimage import zoom
 
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-
 from torch.utils.tensorboard import SummaryWriter
 
 import subprocess
@@ -26,6 +26,7 @@ def catch(func, error=Exception):
             return result
         except error as e:
             print(error)
+
     return wrapper
 
 
@@ -153,13 +154,14 @@ def resume(model, optimizer, args):
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         log("=> loaded checkpoint '{}' (epoch {})"
-                .format(checkpoint, checkpoint['epoch']))
+            .format(checkpoint, checkpoint['epoch']))
     else:
         log("=> no checkpoint found at '{}'".format(args.checkpoint))
 
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.reset()
 
@@ -209,6 +211,26 @@ def reduce_tensor(tensor, world_size):
 
 def reduce_tensors(*tensors, world_size):
     return [reduce_tensor(tensor, world_size) for tensor in tensors]
+
+
+def scale_pos_embed(pos_embed, img_size, patch_size, mode='costant', order=1):
+    pos_embed_length_ckpt = pos_embed.shape[1]
+    pos_embed_length_model = np.square(img_size) // np.square(patch_size) + 1
+    if pos_embed_length_ckpt == pos_embed_length_model:
+        return pos_embed
+    print('The length of position embeding in checkpoint is: '
+          f'{pos_embed_length_ckpt}, while in current model, it should be: '
+          f'{pos_embed_length_model}. Performing {mode} interpolation')
+    pos_embed_tok, pos_embed_grid = pos_embed[:, :1], pos_embed[0, 1:]
+    grid_size_ckpt = int(np.sqrt(pos_embed_grid))
+    grid_size_model = int(np.sqrt(np.square(img_size) // np.square(patch_size)))
+    zoom_factor = (grid_size_model/ grid_size_ckpt, grid_size_model/ grid_size_ckpt, 1)
+    pos_embed_grid = pos_embed_grid.reshape(grid_size_ckpt, grid_size_ckpt, -1)
+    # TODO use torch.interpolate for zoom
+    pos_embed_grid = torch.from_numpy(zoom(pos_embed_grid, zoom_factor, mode=mode, order=order))
+    pos_embed_grid = pos_embed_grid.reshape(1, grid_size_model * grid_size_model, -1)
+    pos_embed = torch.cat((pos_embed_tok, pos_embed_grid), axis=1)
+    return pos_embed
 
 
 class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
