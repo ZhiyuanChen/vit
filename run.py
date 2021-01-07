@@ -74,6 +74,10 @@ def parse():
                         help='drop out rate')
     parser.add_argument('-ado', '--attn_dropout', default=0.1, type=float, metavar='M',
                         help='drop out rate for attention')
+    parser.add_argument('-dp', '--drop_path', default=0.1, type=float, metavar='M',
+                        help='Drop path rate (default: 0.1)')
+    parser.add_argument('-db', '--drop_block', default=None, type=float, metavar='M',
+                        help='Drop block rate (default: None)')
 
     # Train
     parser.add_argument('-b', '--batch_size', default=64, type=int, metavar='N',
