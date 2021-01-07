@@ -1,7 +1,7 @@
-import time
 import sys
 import os
 import random
+import math
 
 from io import BytesIO
 
@@ -93,7 +93,7 @@ class DataFetcher(object):
         return input, target
 
 
-class RepeatedAugSampler(torch.utils.data.Sampler):
+class RepeatedAugmentSampler(torch.utils.data.Sampler):
     """Sampler that restricts data loading to a subset of the dataset for distributed,
     with repeated augmentation.
     It ensures that different each augmented version of a sample will be visible to a
@@ -165,7 +165,7 @@ def load_data(path, transform, batch_size, num_workers, memory_format, shuffle=N
               distributed=True, collate_fn=None):
     dataset = ImageFolder(path, transform)
 
-    sampler = RepeatedAugSampler if repeated_aug else \
+    sampler = RepeatedAugmentSampler(dataset) if repeated_aug else \
         torch.utils.data.distributed.DistributedSampler(dataset) if distributed else None
 
     shuffle = (sampler is None) if shuffle is not None else shuffle
