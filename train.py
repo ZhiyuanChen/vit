@@ -124,7 +124,7 @@ def main(args):
 
     train_dataset, train_sampler, train_loader = \
         data.load_data(args.train_data, train_transform, args.batch_size,
-                       args.workers, memory_format)
+                       args.workers, memory_format, repeated_aug=args.repeated_aug)
     val_dataset, val_sampler, val_loader = \
         data.load_data(args.val_data, val_transform, args.batch_size, args.workers,
                        memory_format, shuffle=False)

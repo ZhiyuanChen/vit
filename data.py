@@ -93,7 +93,7 @@ class DataFetcher(object):
         return input, target
 
 
-class RASampler(torch.utils.data.Sampler):
+class RepeatedAugSampler(torch.utils.data.Sampler):
     """Sampler that restricts data loading to a subset of the dataset for distributed,
     with repeated augmentation.
     It ensures that different each augmented version of a sample will be visible to a
@@ -161,11 +161,12 @@ def fast_collate(batch, memory_format):
     return tensor, targets
 
 
-def load_data(path, transform, batch_size, num_workers, memory_format, shuffle=None, distributed=True, profile=-1,
-              collate_fn=None):
+def load_data(path, transform, batch_size, num_workers, memory_format, shuffle=None, repeated_aug=False,
+              distributed=True, collate_fn=None):
     dataset = ImageFolder(path, transform)
 
-    sampler = torch.utils.data.distributed.DistributedSampler(dataset) if distributed else None
+    sampler = RepeatedAugSampler if repeated_aug else \
+        torch.utils.data.distributed.DistributedSampler(dataset) if distributed else None
 
     shuffle = (sampler is None) if shuffle is not None else shuffle
     collate_fn = collate_fn if collate_fn is not None else lambda b: fast_collate(b, memory_format)
