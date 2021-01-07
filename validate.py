@@ -79,12 +79,11 @@ def main(args):
 
     print("length of validation dataset '{}'".format(len(val_loader)))
 
-    validate(val_loader, model, criterion, args, writer)
+    validate(val_loader, model, criterion, args, logger, writer)
 
 
 @torch.no_grad()
-def validate(loader, model, criterion, args):
-    global logger, writer
+def validate(loader, model, criterion, args, logger=None, writer=None):
     print('evaluating')
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -132,24 +131,23 @@ def validate(loader, model, criterion, args):
         # TODO:  Change timings to mirror train().
         if iteration % args.print_freq == 0:
             print('Test: [{0}/{1}]\t'
-                'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
-                # 'Speed {2:.3f} ({3:.3f})\t'
-                'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    iteration,
-                    len(loader),
-                    args.world_size * args.batch_size / batch_time.val,
-                    args.world_size * args.batch_size / batch_time.avg,
-                    batch_time=batch_time,
-                    loss=losses,
-                    top1=top1,
-                    top5=top5))
+                  'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
+            # 'Speed {2:.3f} ({3:.3f})\t'
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                  'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                iteration,
+                len(loader),
+                args.world_size * args.batch_size / batch_time.val,
+                args.world_size * args.batch_size / batch_time.avg,
+                batch_time=batch_time,
+                loss=losses,
+                top1=top1,
+                top5=top5))
 
         images, target = next(fetcher)
 
-    print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'.format(top1=top1,
-                                                              top5=top5))
+    print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
 
     return top1.avg, top5.avg, losses.avg
 
