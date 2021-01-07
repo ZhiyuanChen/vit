@@ -150,12 +150,6 @@ def s16(pretrained=False, **kwargs):
         **kwargs)
     return model
 
-def b16_224(pretrained=False, **kwargs):
-    model = VisionTransformer(
-        patches=16, hidden_size=768, num_layers=12,
-        num_heads=12, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    return model
-
 def b16(pretrained=False, **kwargs):
     model = VisionTransformer(
         patches=16, hidden_size=768, num_layers=12,
@@ -166,12 +160,6 @@ def b32(pretrained=False, **kwargs):
     model = VisionTransformer(
         patches=32, hidden_size=768, num_layers=12,
         num_heads=12, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    return model
-
-def l16_224(pretrained=False, **kwargs):
-    model = VisionTransformer(
-        patches=16, hidden_size=1024, num_layers=24,
-        num_heads=16, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
 def l16(pretrained=False, **kwargs):
@@ -188,6 +176,5 @@ def l32(pretrained=False, **kwargs):
 
 def h14(pretrained=False, **kwargs):
     model = VisionTransformer(
-        patches=14, hidden_size=1280, num_layers=32,
-        num_heads=16, **kwargs)
+        patches=14, hidden_size=1280, num_layers=32, num_heads=16, **kwargs)
     return model
