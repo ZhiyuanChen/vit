@@ -43,7 +43,7 @@ def parse():
     # Profile
     parser.add_argument('--profile', type=int, default=-1,
                         help='Run a few iterations for profiling.')
-    parser.add_argument('--profile_dir', type=str,, default='profile'
+    parser.add_argument('--profile_dir', type=str, default='profile',
                         help='directory of profile files')
     parser.add_argument('--profile_name', type=str, default='%p.nvprof',
                         help='name of profile files')
