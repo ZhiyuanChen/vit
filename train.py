@@ -25,7 +25,7 @@ import autoaugment
 from validate import validate
 from utils import *
 from run import parse
-from timm.data import create_transform
+from timm.data import create_transform, Mixup
 
 
 def main(args):
@@ -33,6 +33,14 @@ def main(args):
     best_acc1, experiment, logger, writer, save_dir = init(args)
 
     print('\nArguments:' + '\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
+
+    mixup_fn = None
+    mixup_active = args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None
+    if mixup_active:
+        mixup_fn = Mixup(
+            mixup_alpha=args.mixup, cutmix_alpha=args.cutmix, cutmix_minmax=args.cutmix_minmax,
+            prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
+            label_smoothing=args.smoothing, num_classes=args.num_classes)
 
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
@@ -157,7 +165,7 @@ def main(args):
                 save_checkpoint(state, is_best, save_dir, f'epoch-{epoch}.pth')
 
 
-def train(loader, model, criterion, optimizer, scheduler, epoch, args):
+def train(loader, model, criterion, optimizer, scheduler, epoch, args, mixup_fn=None):
     global writer
     print('training {}'.format(epoch))
     batch_time = AverageMeter()
@@ -180,6 +188,9 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args):
         if args.profile >= 0:
             torch.cuda.nvtx.range_push(
                 "Body of iteration {}".format(iteration))
+
+        if mixup_fn is not None:
+            images, target = mixup_fn(images, target)
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("forward")
         output = model(images)
