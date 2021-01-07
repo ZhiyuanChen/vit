@@ -155,12 +155,13 @@ def main(args):
         if int(os.environ['SLURM_PROCID']) == 0:
             is_best = acc1 > best_acc1
             best_acc1 = max(acc1, best_acc1)
+            net = model.module if args.distributed else model
             if epoch % args.save_freq == 0:
-                state = {
+                state_dict = 
                     'epoch': epoch,
                     'arch': args.arch,
                     'args': vars(args),
-                    'state_dict': model.state_dict(),
+                    'state_dict': net.state_dict(),
                     'acc1': acc1,
                     'acc5': acc5,
                     'optimizer': optimizer.state_dict(),
