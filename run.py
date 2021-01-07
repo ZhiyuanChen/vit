@@ -91,7 +91,7 @@ def parse():
     # Optimize
     parser.add_argument('-o', '--optimizer', type=str, metavar='OPTIMIZER',
                         default='AdamW', help='Optimizer (default: "AdamW"')
-    parser.add_argument('-l', '--lr', type=float, metavar='LR', default=5e-4,
+    parser.add_argument('-l', '--lr', type=float, metavar='LR', default=1e-3,
                         help='base learning rate, scaled by total batch size / lr_factor')
     parser.add_argument('-lrf', '--lr_factor', type=float, default=4096.0,
                         help='scale learning rate')
