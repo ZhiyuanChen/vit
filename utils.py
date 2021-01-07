@@ -145,20 +145,6 @@ def setup_logger(experiment):
     return logger
 
 
-def resume(model, optimizer, args):
-    if os.path.isfile(args.checkpoint):
-        log("=> loading checkpoint '{}'".format(args.checkpoint))
-        checkpoint = torch.load(args.checkpoint, map_location=lambda storage, loc: storage.cuda(args.gpu))
-        args.start_epoch = checkpoint['epoch']
-        best_acc1 = checkpoint['best_acc1']
-        model.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        log("=> loaded checkpoint '{}' (epoch {})"
-            .format(checkpoint, checkpoint['epoch']))
-    else:
-        log("=> no checkpoint found at '{}'".format(args.checkpoint))
-
-
 class AverageMeter(object):
     """Computes and stores the average and current value"""
 
@@ -200,6 +186,19 @@ def save_checkpoint(state, is_best, save_dir, save_name='checkpoint.pth', best_n
     if is_best:
         best = os.path.join(save_dir, best_name or f'{state["acc1"]}.pth')
         shutil.copyfile(path, best)
+
+
+def load_checkpoint(model, optimizer, scheduler, args):
+    if not os.path.isfile(args.checkpoint):
+        raise FileNotFoundError('checkpoint ')
+    print(f'=> loading checkpoint "{args.checkpoint}"')
+    checkpoint = torch.load(args.checkpoint, map_location=lambda storage, loc: storage.cuda(args.gpu))
+    args.start_epoch = checkpoint['epoch']
+    best_acc1 = checkpoint['best_acc1']
+    model.load_state_dict(checkpoint['state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
+    scheduler.load_state_dict(checkpoint['scheduler'])
+    print(f'=> loaded checkpoint "{args.checkpoint}" (epoch {checkpoint["epoch"]}')
 
 
 def reduce_tensor(tensor, world_size):
