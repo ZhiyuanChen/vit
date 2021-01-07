@@ -107,7 +107,7 @@ def main(args):
             train_sampler.set_epoch(epoch)
 
         acc1, acc5, loss = train(train_loader, model, criterion, optimizer,
-              scheduler, epoch, args)
+                                 scheduler, epoch, args, logger, writer)
 
         # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
         if writer:
@@ -132,8 +132,7 @@ def main(args):
                 save_checkpoint(state, is_best, save_dir, f'epoch-{epoch}.pth')
 
 
-def train(loader, model, criterion, optimizer, scheduler, epoch, args):
-    global writer
+def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=None, writer=None):
     print('training {}'.format(epoch))
     batch_time = AverageMeter()
     losses = AverageMeter()
