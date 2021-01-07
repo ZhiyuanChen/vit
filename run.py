@@ -25,209 +25,107 @@ def parse():
 
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('-t', '--train', action='store_true')
-    mode.add_argument('-v',
-                      '--validate',
-                      action='store_true',
-                      help='validate model on validation set')
-    parser.add_argument('-tb',
-                        '--tensorboard',
-                        action='store_true',
+    mode.add_argument('-v', '--validate', action='store_true', help='validate model')
+
+    # Log
+    parser.add_argument('-tb', '--tensorboard', action='store_true',
                         help='use tensorboard')
-    parser.add_argument('-log',
-                        '--log',
-                        action='store_true',
-                        help='use logger')
-    parser.add_argument('-ed',
-                        '--experiment_dir',
-                        default='experiments',
-                        type=str,
+    parser.add_argument('-log', '--log', action='store_true', help='use logger')
+    parser.add_argument('-ed', '--experiment_dir', type=str, default='experiments',
                         help='directory of results')
-
-    parser.add_argument('--profile',
-                        default=-1,
-                        type=int,
-                        help='Run a few iterations for profiling.')
-    parser.add_argument('--profile_dir',
-                        default='profile',
-                        type=str,
-                        help='directory of profile files')
-    parser.add_argument('--profile_name',
-                        default='%p.nvprof',
-                        type=str,
-                        help='name of profile files')
-
-    parser.add_argument('-td',
-                        '--train_data',
-                        metavar='DIR',
-                        help='path to train dataset',
-                        default='/mnt/lustre/share_data/imagenet22k')
-    parser.add_argument('-vd',
-                        '--val_data',
-                        metavar='DIR',
-                        help='path to validation dataset',
-                        default='/mnt/lustre/share_data/ImageNet-Pytorch/val')
-    parser.add_argument('-a',
-                        '--arch',
-                        metavar='ARCH',
-                        default='l16',
-                        choices=model_names,
-                        help='model architecture: ' + ' | '.join(model_names) +
-                        ' (default: l16)')
-    parser.add_argument('-pt',
-                        '--pretrained',
-                        action='store_true',
-                        help='use pre-trained model')
-    parser.add_argument('-c',
-                        '--checkpoint',
-                        default='/mnt/lustre/chenzhiyuan1/pyvit/checkpoints/21kl16.pth',
-                        type=str,
-                        help='checkpoint to validate')
-    parser.add_argument('-r',
-                        '--resume',
-                        default=None,
-                        type=str,
-                        metavar='PATH',
-                        help='path to latest checkpoint (default: None)')
-    parser.add_argument('-n',
-                        '--num_classes',
-                        default=21843,
-                        type=int,
-                        metavar='N',
-                        help='number of classes')
-    parser.add_argument('-s',
-                        '--img_size',
-                        default=224,
-                        type=int,
-                        metavar='N',
-                        help='image size to crop (default: 224)')
-    parser.add_argument('-b',
-                        '--batch_size',
-                        default=64,
-                        type=int,
-                        metavar='N',
-                        help='mini-batch size per process (default: 16)')
-    parser.add_argument('-as',
-                        '--accum_steps',
-                        default=1,
-                        type=int,
-                        metavar='N',
-                        help='gradient accumulation steps')
-    parser.add_argument('-pf',
-                        '--print_freq',
-                        default=100,
-                        type=int,
-                        metavar='N',
-                        help='print frequency (default: 100)')
-    parser.add_argument('-sf',
-                        '--save_freq',
-                        default=10,
-                        type=int,
-                        metavar='N',
-                        help='save frequency (default: 10)')
-    parser.add_argument('-sd',
-                        '--save_dir',
-                        default='checkpoints',
-                        type=str,
+    parser.add_argument('-pf', '--print_freq', type=int, default=100,
+                        metavar='N', help='print frequency (default: 100)')
+    parser.add_argument('-sf', '--save_freq', type=int, default=10,
+                        metavar='N', help='save frequency (default: 10)')
+    parser.add_argument('-sd', '--save_dir', type=str, default='checkpoints',
                         help='directory of saved_checkpoints')
 
-    parser.add_argument('-e',
-                        '--epochs',
-                        default=90,
-                        type=int,
-                        metavar='N',
-                        help='number of total epochs to run')
-    parser.add_argument('-se',
-                        '--start_epoch',
-                        default=0,
-                        type=int,
-                        metavar='N',
-                        help='manual epoch number (useful on restarts)')
-    parser.add_argument('-gc',
-                        '--gradient_clip',
-                        default=1.0,
-                        type=float,
-                        metavar='M',
-                        help='momentum')
-    parser.add_argument('-do',
-                        '--dropout',
-                        default=0.1,
-                        type=float,
-                        metavar='M',
-                        help='drop out rate')
-    parser.add_argument('-ado',
-                        '--attn_dropout',
-                        default=0.1,
-                        type=float,
-                        metavar='M',
-                        help='drop out rate for attention')
+    # Profile
+    parser.add_argument('--profile', type=int, default=-1,
+                        help='Run a few iterations for profiling.')
+    parser.add_argument('--profile_dir', type=str,, default='profile'
+                        help='directory of profile files')
+    parser.add_argument('--profile_name', type=str, default='%p.nvprof',
+                        help='name of profile files')
 
-    parser.add_argument('-o',
-                        '--optimizer',
-                        default='AdamW',
-                        type=str,
-                        help='Optimizer to use')
-    parser.add_argument('-l',
-                        '--lr',
-                        default=5e-4,
-                        type=float,
-                        metavar='LR',
+    # Data
+    parser.add_argument('-td', '--train_data', type=str, metavar='DIR',
+                        default='/mnt/lustre/share_data/imagenet22k',
+                        help='path to train dataset')
+    parser.add_argument('-vd', '--val_data', metavar='DIR',
+                        default='/mnt/lustre/share_data/ImageNet-Pytorch/val',
+                        help='path to validation dataset')
+    parser.add_argument('-a', '--arch', default='l16', choices=model_names,
+                        metavar='ARCH', help='model architecture: ' + ' | '.join(model_names) + ' (default: l16)')
+
+    # Model
+    parser.add_argument('-pt', '--pretrained', action='store_true', help='use pre-trained model')
+    parser.add_argument('-c', '--checkpoint', type=str,
+                        default='/mnt/lustre/chenzhiyuan1/pyvit/checkpoints/21kl16.pth',
+                        help='checkpoint to validate')
+    parser.add_argument('-r', '--resume', type=str, metavar='PATH', default=None,
+                        help='path to latest checkpoint (default: None)')
+    parser.add_argument('-n', '--num_classes', type=int, metavar='N', default=21843,
+                        help='number of classes')
+    parser.add_argument('-s', '--img_size', type=int, metavar='N', default=224,
+                        help='image size to crop (default: 224)')
+    parser.add_argument('-do', '--dropout', type=float, metavar='M', default=0.1,
+                        help='drop out rate')
+    parser.add_argument('-ado', '--attn_dropout', type=float, metavar='M', default=0.1,
+                        help='drop out rate for attention')
+    parser.add_argument('-dp', '--drop_path', type=float, metavar='M', default=0.1,
+                        help='Drop path rate (default: 0.1)')
+    parser.add_argument('-db', '--drop_block', type=float, metavar='M', default=None,
+                        help='Drop block rate (default: None)')
+
+    # Train
+    parser.add_argument('-b', '--batch_size', type=int, metavar='N', default=64,
+                        help='mini-batch size per process (default: 64)')
+    parser.add_argument('-as', '--accum_steps', type=int, metavar='N', default=1,
+                        help='gradient accumulation steps')
+    parser.add_argument('-e', '--epochs', type=int, metavar='N', default=90,
+                        help='number of total epochs to run')
+    parser.add_argument('-se', '--start_epoch', type=int, metavar='N', default=0,
+                        help='manual epoch number (useful on restarts)')
+
+    # Optimize
+    parser.add_argument('-o', '--optimizer', type=str, metavar='OPTIMIZER',
+                        default='AdamW', help='Optimizer (default: "AdamW"')
+    parser.add_argument('-l', '--lr', type=float, metavar='LR', default=5e-4,
                         help='base learning rate, scaled by total batch size / lr_factor')
-    parser.add_argument('-lrf',
-                        '--lr_factor',
-                        default=4096.0,
-                        type=float,
+    parser.add_argument('-lrf', '--lr_factor', type=float, default=4096.0,
                         help='scale learning rate')
-    parser.add_argument('-flr',
-                        '--final_lr',
-                        default=1e-5,
-                        type=float,
-                        metavar='LR',
+    parser.add_argument('-flr', '--final_lr', type=float, metavar='LR', default=1e-5,
                         help='final learning rate, scaled by total batch size / lr_factor')
-    parser.add_argument('-m',
-                        '--momentum',
-                        default=0.9,
-                        type=float,
-                        metavar='M',
+    parser.add_argument('-m', '--momentum', type=float, metavar='M', default=0.9,
                         help='momentum')
-    parser.add_argument('-wd',
-                        '--weight_decay',
-                        default=0.0001,
-                        type=float,
-                        metavar='W',
+    parser.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.0001,
                         help='weight decay (default: 0.0001)')
-    parser.add_argument('-ls',
-                        '--strategy',
-                        default='linear',
-                        type=str,
+    parser.add_argument('-ls', '--strategy', type=str, default='linear',
                         help='learning rate scaling strategy')
-    parser.add_argument('-ws',
-                        '--warmup_steps',
-                        default=5000,
-                        type=int,
-                        metavar='N',
+    parser.add_argument('-ws', '--warmup_steps', type=int, metavar='N', default=5000,
                         help='number of warm up epochs to run')
+    parser.add_argument('-gc', '--gradient_clip', type=float, default=1.0,
+                        help='gradient clip')
     parser.add_argument('--deterministic', action='store_true')
 
-    parser.add_argument("--local_rank", default=0, type=int)
-    parser.add_argument('--sync_bn',
-                        action='store_true',
+    # fp16
+    parser.add_argument('--sync_bn', action='store_true',
                         help='enabling apex sync BN.')
     parser.add_argument('--opt_level', type=str, default='O1')
     parser.add_argument('--keep_batchnorm_fp32', type=str, default=None)
     parser.add_argument('--loss_scale', type=str, default=None)
     parser.add_argument('--channels_last', action='store_true')
 
+    # Slurm
     parser.add_argument('--slurm', action='store_true')
     parser.add_argument('--port', type=str, default='29500')
-    parser.add_argument('-j', '--job_name', default='ViT', type=str)
-    parser.add_argument('-p', '--partition', default='pat_prototype', type=str)
+    parser.add_argument("--local_rank", type=int, default=0)
+    parser.add_argument('-j', '--job_name', type=str, default='ViT')
+    parser.add_argument('-p', '--partition', type=str, default='pat_prototype')
     parser.add_argument('-x', '--exclude', nargs='+', default=None)
-    parser.add_argument('-g', '--gpus', default=32, type=int)
-    parser.add_argument('-w',
-                        '--workers',
-                        default=64,
-                        type=int,
-                        metavar='N',
+    parser.add_argument('-g', '--gpus', type=int, default=32)
+    parser.add_argument('-w', '--workers', type=int, metavar='N', default=64,
                         help='number of data loading workers (default: 64)')
 
     parser.set_defaults(train=True, tensorboard=True, logger=True, slurm=True)
