@@ -26,6 +26,7 @@ def catch(func, error=Exception):
             return result
         except error as e:
             print(error)
+
     return wrapper
 
 
@@ -153,13 +154,14 @@ def resume(model, optimizer, args):
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         log("=> loaded checkpoint '{}' (epoch {})"
-                .format(checkpoint, checkpoint['epoch']))
+            .format(checkpoint, checkpoint['epoch']))
     else:
         log("=> no checkpoint found at '{}'".format(args.checkpoint))
 
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.reset()
 

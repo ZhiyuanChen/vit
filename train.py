@@ -63,13 +63,12 @@ def main(args):
 
     if args.optimizer in ('SGD', 'RMSprop'):
         optimizer = getattr(torch.optim, args.optimizer)(
-                        model.parameters(), args.lr, momentum=args.momentum,
-                        weight_decay=args.weight_decay)
+            model.parameters(), args.lr, momentum=args.momentum,
+            weight_decay=args.weight_decay)
     else:
         optimizer = getattr(torch.optim, args.optimizer)(
-                        model.parameters(), args.lr,
-                        weight_decay=args.weight_decay)
-                        
+            model.parameters(), args.lr,
+            weight_decay=args.weight_decay)
 
     if args.resume:
         resume(model, optimizer, args)
@@ -116,12 +115,12 @@ def main(args):
         transforms.Resize(args.img_size),
         transforms.CenterCrop(args.img_size),
     ])
-    #val_transform = create_transform(
+    # val_transform = create_transform(
     #    input_size=args.img_size,
     #    is_training=False,
     #    use_prefetcher=True,
     #    interpolation=args.train_interpolation,
-    #)
+    # )
 
     train_dataset, train_sampler, train_loader = \
         data.load_data(args.train_data, train_transform, args.batch_size,
@@ -145,8 +144,8 @@ def main(args):
             train_sampler.set_epoch(epoch)
 
         acc1, acc5, loss = train(train_loader, model, criterion, optimizer,
-              scheduler, epoch, args)
-        # acc1, acc5, loss = validate(val_loader, model, criterion, args)
+                                 scheduler, epoch, args, logger, writer, mixup_fn)
+        # acc1, acc5, loss = validate(val_loader, model, criterion, args, logger, writer)
 
         # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
         if writer:
@@ -171,8 +170,7 @@ def main(args):
                 save_checkpoint(state, is_best, save_dir, f'epoch-{epoch}.pth')
 
 
-def train(loader, model, criterion, optimizer, scheduler, epoch, args, mixup_fn=None):
-    global writer
+def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=None, writer=None, mixup_fn=None):
     print('training {}'.format(epoch))
     batch_time = AverageMeter()
     losses = AverageMeter()
