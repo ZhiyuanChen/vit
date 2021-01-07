@@ -13,10 +13,11 @@ from timm.models.registry import register_model
 
 
 @register_model
-def t16(pretrained=False, num_classes=1000, **kwargs):
+def t16(pretrained=False, num_classes=1000, drop_path=0.0, **kwargs):
     model = VisionTransformer(
         patch_size=16, embed_dim=192, depth=12, num_heads=3, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), num_classes=num_classes)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), drop_path_rate=drop_path,
+        num_classes=num_classes)
     model.default_cfg = _cfg()
     if pretrained:
         checkpoint = torch.hub.load_state_dict_from_url(
@@ -28,11 +29,12 @@ def t16(pretrained=False, num_classes=1000, **kwargs):
 
 
 @register_model
-def s16(pretrained=False, num_classes=1000, **kwargs):
+def s16(pretrained=False, num_classes=1000, drop_path=0.0, **kwargs):
     model = VisionTransformer(
         patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), num_classes=num_classes)
-    model.default_cfg = _cfg()
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), drop_path_rate=drop_path,
+        num_classes=num_classes)
+     model.default_cfg = _cfg()
     if pretrained:
         checkpoint = torch.hub.load_state_dict_from_url(
             url="https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth",
@@ -43,10 +45,11 @@ def s16(pretrained=False, num_classes=1000, **kwargs):
 
 
 @register_model
-def b16(pretrained=False, num_classes=1000, **kwargs):
+def b16(pretrained=False, num_classes=1000, drop_path=0.0, **kwargs):
     model = VisionTransformer(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), num_classes=num_classes)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), drop_path_rate=drop_path,
+        num_classes=num_classes)
     model.default_cfg = _cfg()
     if pretrained:
         checkpoint = torch.hub.load_state_dict_from_url(
@@ -58,10 +61,11 @@ def b16(pretrained=False, num_classes=1000, **kwargs):
 
 
 @register_model
-def l16(pretrained=False, num_classes=1000, **kwargs):
+def l16(pretrained=False, num_classes=1000, drop_path=0.0, **kwargs):
     model = VisionTransformer(
         patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), num_classes=num_classes)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), drop_path_rate=drop_path,
+        num_classes=num_classes)
     model.default_cfg = _cfg()
     if pretrained:
         print('pretrained not available for this model')
