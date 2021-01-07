@@ -73,10 +73,6 @@ def parse():
                         help='drop out rate')
     parser.add_argument('-ado', '--attn_dropout', type=float, metavar='M', default=0.1,
                         help='drop out rate for attention')
-    parser.add_argument('-dp', '--drop_path', type=float, metavar='M', default=0.1,
-                        help='Drop path rate (default: 0.1)')
-    parser.add_argument('-db', '--drop_block', type=float, metavar='M', default=None,
-                        help='Drop block rate (default: None)')
 
     # Train
     parser.add_argument('-b', '--batch_size', type=int, metavar='N', default=64,
@@ -104,7 +100,7 @@ def parse():
     parser.add_argument('-ls', '--strategy', type=str, default='linear',
                         help='learning rate scaling strategy')
     parser.add_argument('-ws', '--warmup_steps', type=int, metavar='N', default=5000,
-                        help='number of warm up epochs to run')
+                        help='number of warm up steps to run')
     parser.add_argument('-gc', '--gradient_clip', type=float, default=1.0,
                         help='gradient clip')
     parser.add_argument('--deterministic', action='store_true')
