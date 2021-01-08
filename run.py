@@ -35,8 +35,8 @@ def parse():
                         help='directory of results')
     parser.add_argument('-pf', '--print_freq', type=int, default=100,
                         metavar='N', help='print frequency (default: 100)')
-    parser.add_argument('-sf', '--save_freq', type=int, default=10,
-                        metavar='N', help='save frequency (default: 10)')
+    parser.add_argument('-sf', '--save_freq', type=int, default=1,
+                        metavar='N', help='save frequency (default: 1)')
     parser.add_argument('-sd', '--save_dir', type=str, default='checkpoints',
                         help='directory of saved_checkpoints')
 
@@ -95,7 +95,7 @@ def parse():
                         help='final learning rate, scaled by total batch size / lr_factor')
     parser.add_argument('-m', '--momentum', type=float, metavar='M', default=0.9,
                         help='momentum')
-    parser.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.0001,
+    parser.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.03,
                         help='weight decay (default: 0.0001)')
     parser.add_argument('-ls', '--strategy', type=str, default='linear',
                         help='learning rate scaling strategy')
