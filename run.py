@@ -95,7 +95,7 @@ def parse():
                         help='final learning rate, scaled by total batch size / lr_factor')
     parser.add_argument('-m', '--momentum', type=float, metavar='M', default=0.9,
                         help='momentum')
-    parser.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.0001,
+    parser.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.03,
                         help='weight decay (default: 0.0001)')
     parser.add_argument('-ls', '--strategy', type=str, default='linear',
                         help='learning rate scaling strategy')
