@@ -35,8 +35,8 @@ def parse():
                         help='directory of results')
     parser.add_argument('-pf', '--print_freq', type=int, default=100,
                         metavar='N', help='print frequency (default: 100)')
-    parser.add_argument('-sf', '--save_freq', type=int, default=10,
-                        metavar='N', help='save frequency (default: 10)')
+    parser.add_argument('-sf', '--save_freq', type=int, default=1,
+                        metavar='N', help='save frequency (default: 1)')
     parser.add_argument('-sd', '--save_dir', type=str, default='checkpoints',
                         help='directory of saved_checkpoints')
 
