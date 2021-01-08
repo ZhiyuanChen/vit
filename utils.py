@@ -212,7 +212,7 @@ def reduce_tensors(*tensors, world_size):
     return [reduce_tensor(tensor, world_size) for tensor in tensors]
 
 
-def scale_pos_embed(pos_embed, img_size, patch_size, mode='constant', order=1):
+def pos_embed_scale(pos_embed, img_size, patch_size, mode='constant', order=1):
     pos_embed_length_ckpt = pos_embed.shape[1]
     pos_embed_length_model = np.square(img_size) // np.square(patch_size) + 1
     if pos_embed_length_ckpt == pos_embed_length_model:
