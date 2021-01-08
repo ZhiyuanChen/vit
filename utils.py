@@ -212,7 +212,7 @@ def reduce_tensors(*tensors, world_size):
     return [reduce_tensor(tensor, world_size) for tensor in tensors]
 
 
-def scale_pos_embed(pos_embed, img_size, patch_size, mode='costant', order=1):
+def scale_pos_embed(pos_embed, img_size, patch_size, mode='constant', order=1):
     pos_embed_length_ckpt = pos_embed.shape[1]
     pos_embed_length_model = np.square(img_size) // np.square(patch_size) + 1
     if pos_embed_length_ckpt == pos_embed_length_model:
@@ -221,7 +221,7 @@ def scale_pos_embed(pos_embed, img_size, patch_size, mode='costant', order=1):
           f'{pos_embed_length_ckpt}, while in current model, it should be: '
           f'{pos_embed_length_model}. Performing {mode} interpolation')
     pos_embed_tok, pos_embed_grid = pos_embed[:, :1], pos_embed[0, 1:]
-    grid_size_ckpt = int(np.sqrt(pos_embed_grid))
+    grid_size_ckpt = int(np.sqrt(len(pos_embed_grid)))
     grid_size_model = int(np.sqrt(np.square(img_size) // np.square(patch_size)))
     zoom_factor = (grid_size_model/ grid_size_ckpt, grid_size_model/ grid_size_ckpt, 1)
     pos_embed_grid = pos_embed_grid.reshape(grid_size_ckpt, grid_size_ckpt, -1)
