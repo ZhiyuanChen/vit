@@ -95,8 +95,8 @@ def parse():
                         help='final learning rate, scaled by total batch size / lr_factor')
     parser.add_argument('-m', '--momentum', type=float, metavar='M', default=0.9,
                         help='momentum')
-    parser.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.03,
-                        help='weight decay (default: 0.0001)')
+    parser.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.05,
+                        help='weight decay (default: 0.05)')
     parser.add_argument('-ls', '--strategy', type=str, default='linear',
                         help='learning rate scaling strategy')
     parser.add_argument('-ws', '--warmup_steps', type=int, metavar='N', default=5000,
@@ -104,6 +104,43 @@ def parse():
     parser.add_argument('-gc', '--gradient_clip', type=float, default=1.0,
                         help='gradient clip')
     parser.add_argument('--deterministic', action='store_true')
+
+    # Augmentation
+    parser.add_argument('-cj', '--color_jitter', type=float, default=0.4, metavar='PCT',
+                        help='Color jitter factor (default: 0.4)')
+    parser.add_argument('-aa', '--auto_augment', type=str, default='rand-m9-mstd0.5-inc1', metavar='NAME',
+                        help='Use AutoAugment policy. "v0" or "original". " + \
+                             "(default: rand-m9-mstd0.5-inc1)'),
+    parser.add_argument('-sm', '--smoothing', type=float, default=0.1,
+                        help='Label smoothing (default: 0.1)')
+    parser.add_argument('-ti', '--train_interpolation', type=str, default='bicubic',
+                        help='Training interpolation (random, bilinear, bicubic default: "bicubic")')
+    parser.add_argument('-ra', '--repeated_aug', action='store_true',
+                        help='use repeated augmentation')
+
+    # Random Erase
+    parser.add_argument('-rep', '--random_erase_prob', type=float, default=0.25, metavar='PCT',
+                        help='Random erase prob (default: 0.25)')
+    parser.add_argument('-rem', '--random_erase_mode', type=str, default='pixel',
+                        help='Random erase mode (default: "pixel")')
+    parser.add_argument('-rec', '--random_erase_count', type=int, default=1,
+                        help='Random erase count (default: 1)')
+    parser.add_argument('-res', '--random_erase_split', action='store_true', default=False,
+                        help='Do not random erase first (clean) augmentation split')
+
+    # Mixup
+    parser.add_argument('-mu', '--mixup', type=float, default=0.8,
+                        help='mixup alpha, mixup enabled if > 0. (default: 0.8)')
+    parser.add_argument('-mum', '--mixup_mode', type=str, default='batch',
+                        help='How to apply mixup/cutmix params. Per "batch", "pair", or "elem"')
+    parser.add_argument('-mup', '--mixup_prob', type=float, default=1.0,
+                        help='Probability of performing mixup or cutmix when either/both is enabled')
+    parser.add_argument('-cm', '--cutmix', type=float, default=1.0,
+                        help='cutmix alpha, cutmix enabled if > 0. (default: 1.0)')
+    parser.add_argument('--cutmix_minmax', type=float, nargs='+', default=None,
+                        help='cutmix min/max ratio, overrides alpha and enables cutmix if set (default: None)')
+    parser.add_argument('-msp', '--mixup_switch_prob', type=float, default=0.5,
+                        help='Probability of switching to cutmix when both mixup and cutmix enabled')
 
     # fp16
     parser.add_argument('--sync_bn', action='store_true',
