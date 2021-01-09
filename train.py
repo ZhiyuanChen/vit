@@ -182,7 +182,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
 
     iteration = 0
     fetcher = data.DataFetcher(loader)
-    images, targets = next(fetcher)
+    images, labels = next(fetcher)
 
     while images is not None:
         iteration += 1
@@ -193,8 +193,9 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
             torch.cuda.nvtx.range_push(
                 "Body of iteration {}".format(iteration))
 
+        targets = labels
         if mixup_fn is not None:
-            images, target = mixup_fn(images, target)
+            images, targets = mixup_fn(images, labels)
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("forward")
         output = model(images)
@@ -226,7 +227,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
 
         if iteration % args.print_freq == 0:
             # measure accuracy
-            acc1, acc5 = accuracy(output.data, targets, topk=(1, 5))
+            acc1, acc5 = accuracy(output.data, labels, topk=(1, 5))
             reduced_loss = loss.data
 
             # average loss and accuracy across processes for logging
@@ -272,7 +273,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
                     top5=top5))
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("next(fetcher)")
-        images, targets = next(fetcher)
+        images, labels = next(fetcher)
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
