@@ -84,7 +84,7 @@ def init(args):
         if args.tensorboard:
             os.makedirs(experiment, exist_ok=True)
             writer = SummaryWriter(experiment)
-        if args.logger:
+        if args.log:
             logger = setup_logger(experiment)
         if args.train:
             os.makedirs(save_dir, exist_ok=True)
