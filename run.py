@@ -161,7 +161,7 @@ def parse():
     parser.add_argument('-w', '--workers', type=int, metavar='N', default=64,
                         help='number of data loading workers (default: 64)')
 
-    parser.set_defaults(train=True, repeated_aug=True, tensorboard=True, logger=True, slurm=True)
+    parser.set_defaults(train=True, repeated_aug=True, tensorboard=True, log=True, slurm=True)
     args, unknown = parser.parse_known_args()
     return args
 
