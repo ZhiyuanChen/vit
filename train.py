@@ -130,7 +130,7 @@ def main(args):
                     'optimizer': optimizer.state_dict(),
                     'scheduler': scheduler.state_dict(),
                 }
-                save_checkpoint(state, is_best, save_dir, f'epoch-{epoch}.pth')
+                save_checkpoint(state_dict, is_best, save_dir, f'epoch-{epoch}.pth')
 
 
 def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=None, writer=None):
