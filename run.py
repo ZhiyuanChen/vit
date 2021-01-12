@@ -105,9 +105,11 @@ def parse():
                         help='gradient clip')
     parser.add_argument('--deterministic', action='store_true')
 
-    # fp16
+    # Sync BatchNormal
     parser.add_argument('--sync_bn', action='store_true',
                         help='enabling apex sync BN.')
+
+    # fp16
     parser.add_argument('--opt_level', type=str, default='O1')
     parser.add_argument('--keep_batchnorm_fp32', type=str, default=None)
     parser.add_argument('--loss_scale', type=str, default=None)

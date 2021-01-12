@@ -14,9 +14,11 @@ try:
     from apex.fp16_utils import *
     from apex import amp, optimizers
     from apex.multi_tensor_apply import multi_tensor_applier
+    sync_bn = apex.parallel.convert_syncbn_model
     APEX_AVAILABLE = True
 except ImportError:
     from torch.nn.parallel import DistributedDataParallel as DDP
+    sync_bn = torch.nn.SyncBatchNorm.convert_sync_batchnorm
     APEX_AVAILABLE = False
     print('apex is not available on this machine')
 
@@ -41,9 +43,8 @@ def main(args):
     model.load_state_dict(checkpoint)
 
     if args.sync_bn:
-        import apex
-        print("using apex synced BN")
-        model = apex.parallel.convert_syncbn_model(model)
+        print('Convery model with Sync BatchNormal')
+        model = sync_bn(model)
 
     model = model.cuda().to(memory_format=memory_format)
 
