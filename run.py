@@ -105,6 +105,9 @@ def parse():
                         help='gradient clip')
     parser.add_argument('--deterministic', action='store_true')
 
+    # Slurm
+    parser.add_argument('--apex', action='store_true')
+
     # Sync BatchNormal
     parser.add_argument('--sync_bn', action='store_true',
                         help='enabling apex sync BN.')
@@ -126,7 +129,7 @@ def parse():
     parser.add_argument('-w', '--workers', type=int, metavar='N', default=64,
                         help='number of data loading workers (default: 64)')
 
-    parser.set_defaults(train=True, tensorboard=True, log=True, slurm=True)
+    parser.set_defaults(train=True, tensorboard=True, log=True, apex=True, slurm=True)
     args, unknown = parser.parse_known_args()
     return args
 

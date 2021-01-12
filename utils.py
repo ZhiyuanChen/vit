@@ -68,7 +68,8 @@ def init(args):
                                              init_method='env://')
         args.world_size = torch.distributed.get_world_size()
 
-        assert torch.backends.cudnn.enabled, "Amp requires cudnn backend to be enabled."
+    if args.apex and not torch.backends.cudnn.enabled:
+        raise RuntimeError('Amp requires cudnn backend to be enabled.')
 
     # proc_id is default to be 0 in case of not distributed
     global best_acc1, experiment, logger, writer, save_dir

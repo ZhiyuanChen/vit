@@ -9,19 +9,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 from tqdm import tqdm
 
-try:
-    from apex.parallel import DistributedDataParallel as DDP
-    from apex.fp16_utils import *
-    from apex import amp, optimizers
-    from apex.multi_tensor_apply import multi_tensor_applier
-    sync_bn = apex.parallel.convert_syncbn_model
-    APEX_AVAILABLE = True
-except ImportError:
-    from torch.nn.parallel import DistributedDataParallel as DDP
-    sync_bn = torch.nn.SyncBatchNorm.convert_sync_batchnorm
-    APEX_AVAILABLE = False
-    print('apex is not available on this machine')
-
 import models
 import data
 from validate import validate
@@ -30,6 +17,17 @@ from run import parse
 
 
 def main(args):
+
+    if args.apex:
+        from apex.parallel import DistributedDataParallel as DDP
+        from apex.fp16_utils import *
+        from apex import amp, optimizers
+        from apex.multi_tensor_apply import multi_tensor_applier
+        sync_bn = apex.parallel.convert_syncbn_model
+     else:
+        from torch.nn.parallel import DistributedDataParallel as DDP
+        sync_bn = torch.nn.SyncBatchNorm.convert_sync_batchnorm
+
     global best_acc1, experiment, logger, writer, save_dir
     best_acc1, experiment, logger, writer, save_dir = init(args)
 
@@ -65,12 +63,13 @@ def main(args):
     if args.resume:
         resume(model, optimizer, args)
 
-    model, optimizer = amp.initialize(
-        model,
-        optimizer,
-        opt_level=args.opt_level,
-        keep_batchnorm_fp32=args.keep_batchnorm_fp32,
-        loss_scale=args.loss_scale)
+    if args.apex:
+        model, optimizer = amp.initialize(
+            model,
+            optimizer,
+            opt_level=args.opt_level,
+            keep_batchnorm_fp32=args.keep_batchnorm_fp32,
+            loss_scale=args.loss_scale)
 
     if args.distributed:
         model = DDP(model)
@@ -166,8 +165,11 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
         loss = loss / args.accum_steps
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("backward")
-        with amp.scale_loss(loss, optimizer) as scaled_loss:
-            scaled_loss.backward()
+        if args.apex:
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            loss.backward()
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         if args.gradient_clip:
