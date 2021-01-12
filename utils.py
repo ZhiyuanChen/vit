@@ -11,7 +11,6 @@ import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-from torch.utils.tensorboard import SummaryWriter
 
 import subprocess
 
@@ -64,11 +63,11 @@ def init(args):
     if args.distributed:
         args.gpu = args.local_rank
         torch.cuda.set_device(args.gpu)
-        torch.distributed.init_process_group(backend='nccl',
-                                             init_method='env://')
+        torch.distributed.init_process_group(backend='nccl')
         args.world_size = torch.distributed.get_world_size()
 
-        assert torch.backends.cudnn.enabled, "Amp requires cudnn backend to be enabled."
+    if args.apex and not torch.backends.cudnn.enabled:
+        raise RuntimeError('Amp requires cudnn backend to be enabled.')
 
     # proc_id is default to be 0 in case of not distributed
     global best_acc1, experiment, logger, writer, save_dir
@@ -81,8 +80,9 @@ def init(args):
     experiment = os.path.join(args.experiment_dir, name.strip('/'))
     save_dir = os.path.join(experiment, args.save_dir)
     if proc_id == 0:
+        os.makedirs(experiment, exist_ok=True)
         if args.tensorboard:
-            os.makedirs(experiment, exist_ok=True)
+            from torch.utils.tensorboard import SummaryWriter
             writer = SummaryWriter(experiment)
         if args.log:
             logger = setup_logger(experiment)

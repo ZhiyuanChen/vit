@@ -2,7 +2,7 @@ import argparse
 import subprocess
 import os
 
-import models
+#import models
 
 prof = 'nvprof --profile-child-processes --profile-from-start off -fo {}'
 
@@ -10,6 +10,10 @@ comm = 'GLOG_logtostderr=-1 GLOG_vmodule=MemcachedClient=-1 MC_COUNT_DISP=100000
         OMPI_MCA_btl_smcuda_use_cuda_ipc=0 OMPI_MCA_mpi_warn_on_fork=0  \
         srun --mpi=pmi2 --job-name={} --partition={} -n {} --gres=gpu:{} --ntasks-per-node={}'
 
+# model_names = sorted(name for name in models.__dict__
+#                      if name.islower() and not name.startswith("__")
+#                      and callable(models.__dict__[name]))
+model_names = ['s16', 'b16', 'b32', 'l16', 'l32', 'h14']
 
 def set_gpu(gpus):
     gres_gpu = min(gpus, 8)
@@ -18,9 +22,6 @@ def set_gpu(gpus):
 
 
 def parse():
-    model_names = sorted(name for name in models.__dict__
-                         if name.islower() and not name.startswith("__")
-                         and callable(models.__dict__[name]))
     parser = argparse.ArgumentParser(description='Vision Transformer')
 
     mode = parser.add_mutually_exclusive_group()
@@ -105,6 +106,7 @@ def parse():
                         help='gradient clip')
     parser.add_argument('--deterministic', action='store_true')
 
+<<<<<<< HEAD
     # Augmentation
     parser.add_argument('-cj', '--color_jitter', type=float, default=0.4, metavar='PCT',
                         help='Color jitter factor (default: 0.4)')
@@ -142,9 +144,14 @@ def parse():
     parser.add_argument('-msp', '--mixup_switch_prob', type=float, default=0.5,
                         help='Probability of switching to cutmix when both mixup and cutmix enabled')
 
-    # fp16
+    # apex
+    parser.add_argument('--apex', action='store_true')
+
+    # Sync BatchNormal
     parser.add_argument('--sync_bn', action='store_true',
                         help='enabling apex sync BN.')
+
+    # fp16
     parser.add_argument('--opt_level', type=str, default='O1')
     parser.add_argument('--keep_batchnorm_fp32', type=str, default=None)
     parser.add_argument('--loss_scale', type=str, default=None)
@@ -161,7 +168,7 @@ def parse():
     parser.add_argument('-w', '--workers', type=int, metavar='N', default=64,
                         help='number of data loading workers (default: 64)')
 
-    parser.set_defaults(train=True, repeated_aug=True, tensorboard=True, log=True, slurm=True)
+    parser.set_defaults(train=True, repeated_aug=True, tensorboard=True, log=True, apex=True, slurm=True)
     args, unknown = parser.parse_known_args()
     return args
 

@@ -5,17 +5,6 @@ import torch
 import torch.nn as nn
 
 from torchvision import transforms
-from torch.utils.tensorboard import SummaryWriter
-
-try:
-    from apex.parallel import DistributedDataParallel as DDP
-    from apex.fp16_utils import *
-    from apex import amp, optimizers
-    from apex.multi_tensor_apply import multi_tensor_applier
-except ImportError:
-    raise ImportError(
-        "Please install apex from https://www.github.com/nvidia/apex to run this example."
-    )
 
 from tqdm import tqdm
 
@@ -23,6 +12,14 @@ import models
 import data
 from utils import *
 from run import parse
+
+try:
+    import apex
+    from apex.parallel import DistributedDataParallel as DDP
+    sync_bn = apex.parallel.convert_syncbn_model
+except ImportError:
+    from torch.nn.parallel import DistributedDataParallel as DDP
+    sync_bn = nn.SyncBatchNorm.convert_sync_batchnorm
 
 
 def main(args):
@@ -34,15 +31,14 @@ def main(args):
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
     print("creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](**args)
+    model = getattr(models, args.arch)(**vars(args))
 
     checkpoint = torch.load(args.checkpoint)
     model.load_state_dict(checkpoint)
 
     if args.sync_bn:
-        import apex
-        print("using apex synced BN")
-        model = apex.parallel.convert_syncbn_model(model)
+        print('Convery model with Sync BatchNormal')
+        model = sync_bn(model)
 
     model = model.cuda().to(memory_format=memory_format)
 

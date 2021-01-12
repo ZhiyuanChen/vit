@@ -5,17 +5,6 @@ import torch
 import torch.nn as nn
 
 from torchvision import transforms
-from torch.utils.tensorboard import SummaryWriter
-
-try:
-    from apex.parallel import DistributedDataParallel as DDP
-    from apex.fp16_utils import *
-    from apex import amp, optimizers
-    from apex.multi_tensor_apply import multi_tensor_applier
-except ImportError:
-    raise ImportError(
-        "Please install apex from https://www.github.com/nvidia/apex to run this example."
-    )
 
 from tqdm import tqdm
 
@@ -26,6 +15,17 @@ from utils import *
 from run import parse
 from timm.data import create_transform, Mixup
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+
+try:
+    import apex
+    from apex.parallel import DistributedDataParallel as DDP
+    from apex import amp, optimizers
+    sync_bn = apex.parallel.convert_syncbn_model
+    APEX_AVAILABLE = True
+except ImportError:
+    from torch.nn.parallel import DistributedDataParallel as DDP
+    sync_bn = nn.SyncBatchNorm.convert_sync_batchnorm
+    APEX_AVAILABLE = False
 
 
 def main(args):
@@ -45,12 +45,11 @@ def main(args):
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
     print("creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](**vars(args))
+    model = getattr(models, args.arch)(**vars(args))
 
     if args.sync_bn:
-        import apex
-        print("using apex synced BN")
-        model = apex.parallel.convert_syncbn_model(model)
+        print('Convery model with Sync BatchNormal')
+        model = sync_bn(model)
 
     model = model.cuda().to(memory_format=memory_format)
 
@@ -72,12 +71,13 @@ def main(args):
     if args.resume:
         resume(model, optimizer, args)
 
-    model, optimizer = amp.initialize(
-        model,
-        optimizer,
-        opt_level=args.opt_level,
-        keep_batchnorm_fp32=args.keep_batchnorm_fp32,
-        loss_scale=args.loss_scale)
+    if APEX_AVAILABLE:
+        model, optimizer = amp.initialize(
+            model,
+            optimizer,
+            opt_level=args.opt_level,
+            keep_batchnorm_fp32=args.keep_batchnorm_fp32,
+            loss_scale=args.loss_scale)
 
     if args.distributed:
         model = DDP(model)
@@ -205,8 +205,11 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
         loss = loss / args.accum_steps
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("backward")
-        with amp.scale_loss(loss, optimizer) as scaled_loss:
-            scaled_loss.backward()
+        if APEX_AVAILABLE:
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            loss.backward()
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         if args.gradient_clip:
@@ -254,23 +257,23 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
                 writer.add_scalar('train/acc5', top5.val, total_iter)
                 writer.add_scalar('train/lr', lr, total_iter)
 
-                print('Epoch: [{0}][{1}/{2}]\t'
-                      'LR {lr:.6f}\t'
-                      'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
-                # 'Speed {3:.3f} ({4:.3f})\t'
-                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                      'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                      'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    epoch,
-                    iteration,
-                    len(loader),
-                    # args.world_size*args.batch_size/batch_time.val,
-                    # args.world_size*args.batch_size/batch_time.avg,
-                    lr=lr,
-                    batch_time=batch_time,
-                    loss=losses,
-                    top1=top1,
-                    top5=top5))
+            print('Epoch: [{0}][{1}/{2}]\t'
+                  'LR {lr:.6f}\t'
+                  'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
+            # 'Speed {3:.3f} ({4:.3f})\t'
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                  'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                epoch,
+                iteration,
+                len(loader),
+                # args.world_size*args.batch_size/batch_time.val,
+                # args.world_size*args.batch_size/batch_time.avg,
+                lr=lr,
+                batch_time=batch_time,
+                loss=losses,
+                top1=top1,
+                top5=top5))
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("next(fetcher)")
         images, labels = next(fetcher)
