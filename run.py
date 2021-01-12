@@ -80,7 +80,7 @@ def parse():
                         help='mini-batch size per process (default: 64)')
     parser.add_argument('-as', '--accum_steps', type=int, metavar='N', default=1,
                         help='gradient accumulation steps')
-    parser.add_argument('-e', '--epochs', type=int, metavar='N', default=90,
+    parser.add_argument('-e', '--epochs', type=int, metavar='N', default=300,
                         help='number of total epochs to run')
     parser.add_argument('-se', '--start_epoch', type=int, metavar='N', default=0,
                         help='manual epoch number (useful on restarts)')
@@ -88,7 +88,7 @@ def parse():
     # Optimize
     parser.add_argument('-o', '--optimizer', type=str, metavar='OPTIMIZER',
                         default='AdamW', help='Optimizer (default: "AdamW"')
-    parser.add_argument('-l', '--lr', type=float, metavar='LR', default=1e-3,
+    parser.add_argument('-l', '--lr', type=float, metavar='LR', default=0.05,
                         help='base learning rate, scaled by total batch size / lr_factor')
     parser.add_argument('-lrf', '--lr_factor', type=float, default=4096.0,
                         help='scale learning rate')
@@ -96,7 +96,7 @@ def parse():
                         help='final learning rate, scaled by total batch size / lr_factor')
     parser.add_argument('-m', '--momentum', type=float, metavar='M', default=0.9,
                         help='momentum')
-    parser.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.0001,
+    parser.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.05,
                         help='weight decay (default: 0.05)')
     parser.add_argument('-ls', '--strategy', type=str, default='linear',
                         help='learning rate scaling strategy')
@@ -106,7 +106,6 @@ def parse():
                         help='gradient clip')
     parser.add_argument('--deterministic', action='store_true')
 
-<<<<<<< HEAD
     # Augmentation
     parser.add_argument('-cj', '--color_jitter', type=float, default=0.4, metavar='PCT',
                         help='Color jitter factor (default: 0.4)')
