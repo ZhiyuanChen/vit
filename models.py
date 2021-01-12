@@ -1,21 +1,35 @@
-# Copyright (c) 2015-present, Facebook, Inc.
-# All rights reserved.
-#
-# This source code is licensed under the CC-by-NC license found in the
-# LICENSE file in the root directory of this source tree.
-#
 import torch
 import torch.nn as nn
 from functools import partial
 
-from timm.models.vision_transformer import VisionTransformer, _cfg
-from timm.models.registry import register_model
+
+class DropModule(nn.Module):
+    def __init__(self, drop_prob=0., epislon=1e-7):
+        self.drop_prob = drop_prob
+        self.epislon = epislon
+
+    def forward(self, x):
+        if not self.training or self.drop_prob < self.epislon:
+            return x
+        keep_prob = 1 - self.drop_prob
+        shape = (x.shape[0],) + (1,) * (x.ndim - 1)
+        random_tensor = keep_prob + torch.rand(shape, dtype=x.dtype, device=x.device)
+        random_tensor.floor_()
+        output = x.div(keep_prob) * random_tensor
+        return output
 
 
-<<<<<<< HEAD
-@register_model
-def t16(pretrained=False, num_classes=1000, drop_path=0.0, **kwargs):
-=======
+class MLPBlock(nn.Module):
+    def __init__(self, in_channels, hidden_channels=None, out_channels=None,
+                 dropout=0.):
+        super().__init__()
+        hidden_channels = hidden_channels or in_channels
+        out_channels = out_channels or in_channels
+        self.fc1 = nn.Linear(in_channels, hidden_channels)
+        self.gelu = nn.GELU()
+        self.fc2 = nn.Linear(hidden_channels, out_channels)
+        self.dropout = nn.Dropout(dropout)
+
     def forward(self, x):
         x = self.fc1(x)
         x = self.gelu(x)
@@ -50,7 +64,7 @@ class Attention(nn.Module):
 class Encoder1DBlock(nn.Module):
     def __init__(self, hidden_size, num_heads, mlp_ratio=4, dropout=0.,
                  attn_bias=True, attn_scaling=None, attn_dropout=0.,
-                 norm=nn.LayerNorm):
+                 norm=nn.LayerNorm, drop_prob=0.):
         super().__init__()
         self.norm1 = norm(hidden_size)
         self.attention = Attention(
@@ -59,10 +73,11 @@ class Encoder1DBlock(nn.Module):
         self.norm2 = norm(hidden_size)
         mlp_dim = int(hidden_size * mlp_ratio)
         self.mlp = MLPBlock(in_channels=hidden_size, hidden_channels=mlp_dim, dropout=dropout)
+        self.drop_module = DropModule(drop_prob) if drop_prob > 0. else nn.Identity()
 
     def forward(self, x):
-        x = x + self.attention(self.norm1(x))
-        x = x + self.mlp(self.norm2(x))
+        x = x + self.drop_module(self.attention(self.norm1(x)))
+        x = x + self.drop_module(self.mlp(self.norm2(x)))
         return x
 
 
@@ -70,19 +85,20 @@ class Encoder(nn.Module):
     def __init__(self, img_size=384, patches=16, hidden_size=1024,
                  num_layers=12, num_heads=12, mlp_ratio=4, dropout=0.,
                  attn_bias=True, attn_scaling=None, attn_dropout=0.,
-                 norm=nn.LayerNorm):
+                 norm=nn.LayerNorm, drop_prob=0.):
         super().__init__()
         num_patches = (img_size // patches) ** 2
         self.pos_embed = nn.Parameter(
             torch.zeros(1, num_patches + 1, hidden_size))
         self.dropout = nn.Dropout(dropout)
-        self.blocks = nn.Sequential(
-            *[Encoder1DBlock(
+        drop_probs = [x.item() for x in torch.linspace(0, drop_prob, num_layers)]
+        self.blocks = nn.ModuleList(
+            [Encoder1DBlock(
                 hidden_size=hidden_size, num_heads=num_heads,
                 mlp_ratio=mlp_ratio, dropout=dropout, attn_bias=attn_bias,
                 attn_scaling=attn_scaling, attn_dropout=attn_dropout,
-                norm=norm
-            ) for _ in range(num_layers)]
+                norm=norm, drop_prob=drop_probs[i]
+            ) for i in range(num_layers)]
         )
         self.norm = norm(hidden_size)
         self.apply(self._init)
@@ -93,7 +109,8 @@ class Encoder(nn.Module):
     def forward(self, x):
         x = x + self.pos_embed
         x = self.dropout(x)
-        x = self.blocks(x)
+        for block in self.blocks:
+           x = block(x)
         x = self.norm(x)
         return x[:, 0]
 
@@ -145,46 +162,19 @@ class VisionTransformer(nn.Module):
 
 
 def s16(pretrained=False, **kwargs):
->>>>>>> master
     model = VisionTransformer(
-        patch_size=16, embed_dim=192, depth=12, num_heads=3, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), drop_path_rate=drop_path,
-        num_classes=num_classes)
-    model.default_cfg = _cfg()
-    if pretrained:
-        checkpoint = torch.hub.load_state_dict_from_url(
-            url="https://dl.fbaipublicfiles.com/deit/deit_tiny_patch16_224-a1311bcf.pth",
-            map_location="cpu", check_hash=True
-        )
-        model.load_state_dict(checkpoint["model"])
+        patches=16, hidden_size=768, num_layers=8, num_heads=8, mlp_ratio=3,
+        **kwargs)
     return model
 
-<<<<<<< HEAD
-=======
 def b16(pretrained=False, **kwargs):
     model = VisionTransformer(
         patches=16, hidden_size=768, num_layers=12,
         num_heads=12, norm=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
->>>>>>> master
 
-@register_model
-def s16(pretrained=False, num_classes=1000, drop_path=0.0, **kwargs):
+def b32(pretrained=False, **kwargs):
     model = VisionTransformer(
-<<<<<<< HEAD
-        patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), drop_path_rate=drop_path,
-        num_classes=num_classes)
-    model.default_cfg = _cfg()
-    if pretrained:
-        checkpoint = torch.hub.load_state_dict_from_url(
-            url="https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth",
-            map_location="cpu", check_hash=True
-        )
-        model.load_state_dict(checkpoint["model"])
-    return model
-
-=======
         patches=32, hidden_size=768, num_layers=12,
         num_heads=12, norm=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
@@ -194,36 +184,14 @@ def l16(pretrained=False, **kwargs):
         patches=16, hidden_size=1024, num_layers=24,
         num_heads=16, norm=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
->>>>>>> master
 
-@register_model
-def b16(pretrained=False, num_classes=1000, drop_path=0.0, **kwargs):
+def l32(pretrained=False, **kwargs):
     model = VisionTransformer(
-<<<<<<< HEAD
-        patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), drop_path_rate=drop_path,
-        num_classes=num_classes)
-    model.default_cfg = _cfg()
-    if pretrained:
-        checkpoint = torch.hub.load_state_dict_from_url(
-            url="https://dl.fbaipublicfiles.com/deit/deit_base_patch16_224-b5f2ef4d.pth",
-            map_location="cpu", check_hash=True
-        )
-        model.load_state_dict(checkpoint["model"])
-=======
         patches=32, hidden_size=1024, num_layers=24,
         num_heads=16, norm=partial(nn.LayerNorm, eps=1e-6), **kwargs)
->>>>>>> master
     return model
 
-
-@register_model
-def l16(pretrained=False, num_classes=1000, drop_path=0.0, **kwargs):
+def h14(pretrained=False, **kwargs):
     model = VisionTransformer(
-        patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), drop_path_rate=drop_path,
-        num_classes=num_classes)
-    model.default_cfg = _cfg()
-    if pretrained:
-        print('pretrained not available for this model')
+        patches=14, hidden_size=1280, num_layers=32, num_heads=16, **kwargs)
     return model
