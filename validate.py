@@ -13,19 +13,16 @@ import data
 from utils import *
 from run import parse
 
+try:
+    import apex
+    from apex.parallel import DistributedDataParallel as DDP
+    sync_bn = apex.parallel.convert_syncbn_model
+except ImportError:
+    from torch.nn.parallel import DistributedDataParallel as DDP
+    sync_bn = nn.SyncBatchNorm.convert_sync_batchnorm
+
 
 def main(args):
-
-    if args.apex:
-        from apex.parallel import DistributedDataParallel as DDP
-        from apex.fp16_utils import *
-        from apex import amp, optimizers
-        from apex.multi_tensor_apply import multi_tensor_applier
-        sync_bn = apex.parallel.convert_syncbn_model
-     else:
-        from torch.nn.parallel import DistributedDataParallel as DDP
-        sync_bn = torch.nn.SyncBatchNorm.convert_sync_batchnorm
-
     global best_acc1, experiment, logger, writer, save_dir
     best_acc1, experiment, logger, writer, save_dir = init(args)
 
