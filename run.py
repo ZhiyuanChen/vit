@@ -70,6 +70,8 @@ def parse():
                         help='number of classes')
     parser.add_argument('-s', '--img_size', type=int, metavar='N', default=224,
                         help='image size to crop (default: 224)')
+    parser.add_argument('-dp', '--drop_prob', type=float, metavar='M', default=0.1,
+                        help='drop module rate')
     parser.add_argument('-do', '--dropout', type=float, metavar='M', default=0.1,
                         help='drop out rate')
     parser.add_argument('-ado', '--attn_dropout', type=float, metavar='M', default=0.1,
