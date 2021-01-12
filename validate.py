@@ -34,7 +34,7 @@ def main(args):
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
     print("creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](**args)
+    model = getattr(models, args.arch)(**vars(args))
 
     checkpoint = torch.load(args.checkpoint)
     model.load_state_dict(checkpoint)
