@@ -213,23 +213,23 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
                 writer.add_scalar('train/acc5', top5.val, total_iter)
                 writer.add_scalar('train/lr', lr, total_iter)
 
-                print('Epoch: [{0}][{1}/{2}]\t'
-                      'LR {lr:.6f}\t'
-                      'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
-                # 'Speed {3:.3f} ({4:.3f})\t'
-                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                      'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                      'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    epoch,
-                    iteration,
-                    len(loader),
-                    # args.world_size*args.batch_size/batch_time.val,
-                    # args.world_size*args.batch_size/batch_time.avg,
-                    lr=lr,
-                    batch_time=batch_time,
-                    loss=losses,
-                    top1=top1,
-                    top5=top5))
+            print('Epoch: [{0}][{1}/{2}]\t'
+                  'LR {lr:.6f}\t'
+                  'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
+            # 'Speed {3:.3f} ({4:.3f})\t'
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                  'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                epoch,
+                iteration,
+                len(loader),
+                # args.world_size*args.batch_size/batch_time.val,
+                # args.world_size*args.batch_size/batch_time.avg,
+                lr=lr,
+                batch_time=batch_time,
+                loss=losses,
+                top1=top1,
+                top5=top5))
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("next(fetcher)")
         images, targets = next(fetcher)
