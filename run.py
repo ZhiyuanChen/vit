@@ -106,7 +106,7 @@ def parse():
                         help='gradient clip')
     parser.add_argument('--deterministic', action='store_true')
 
-    # Slurm
+    # apex
     parser.add_argument('--apex', action='store_true')
 
     # Sync BatchNormal
