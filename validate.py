@@ -7,17 +7,18 @@ import torch.nn as nn
 from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 
+from tqdm import tqdm
+
 try:
     from apex.parallel import DistributedDataParallel as DDP
     from apex.fp16_utils import *
     from apex import amp, optimizers
     from apex.multi_tensor_apply import multi_tensor_applier
+    APEX_AVAILABLE = True
 except ImportError:
-    raise ImportError(
-        "Please install apex from https://www.github.com/nvidia/apex to run this example."
-    )
-
-from tqdm import tqdm
+    from torch.nn.parallel import DistributedDataParallel as DDP
+    APEX_AVAILABLE = False
+    print('apex is not available on this machine')
 
 import models
 import data
