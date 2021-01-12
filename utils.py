@@ -11,7 +11,6 @@ import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-from torch.utils.tensorboard import SummaryWriter
 
 import subprocess
 
@@ -82,8 +81,9 @@ def init(args):
     experiment = os.path.join(args.experiment_dir, name.strip('/'))
     save_dir = os.path.join(experiment, args.save_dir)
     if proc_id == 0:
+        os.makedirs(experiment, exist_ok=True)
         if args.tensorboard:
-            os.makedirs(experiment, exist_ok=True)
+            from torch.utils.tensorboard import SummaryWriter
             writer = SummaryWriter(experiment)
         if args.log:
             logger = setup_logger(experiment)
