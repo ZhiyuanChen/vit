@@ -82,12 +82,13 @@ def main(args):
     if args.distributed:
         model = DDP(model)
 
-    criterion = nn.CrossEntropyLoss()
+    train_criterion = nn.CrossEntropyLoss()
+    val_criterion = nn.CrossEntropyLoss()
     if args.mixup > 0.:
-        criterion = SoftTargetCrossEntropy()
+        train_criterion = SoftTargetCrossEntropy()
     elif args.smoothing:
-        criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
-    criterion.cuda()
+        train_criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
+    train_criterion.cuda()
 
     print("loading training set from '{}'".format(args.train_data))
     print("loading validation set from '{}'".format(args.val_data))
@@ -142,9 +143,9 @@ def main(args):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
-        acc1, acc5, loss = train(train_loader, model, criterion, optimizer,
+        acc1, acc5, loss = train(train_loader, model, train_criterion, optimizer,
                                  scheduler, epoch, args, logger, writer, mixup_fn)
-        #acc1, acc5, loss = validate(val_loader, model, criterion, args, logger, writer)
+        # acc1, acc5, loss = validate(val_loader, model, val_criterion, args, logger, writer)
 
         # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
         if writer:
