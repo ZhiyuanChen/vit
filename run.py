@@ -51,7 +51,7 @@ def parse():
 
     # Data
     parser.add_argument('-td', '--train_data', type=str, metavar='DIR',
-                        default='/mnt/lustre/share_data/imagenet22k',
+                        default='/mnt/lustre/share_data/ImageNet-Pytorch/train',
                         help='path to train dataset')
     parser.add_argument('-vd', '--val_data', metavar='DIR',
                         default='/mnt/lustre/share_data/ImageNet-Pytorch/val',
@@ -66,7 +66,7 @@ def parse():
                         help='checkpoint to validate')
     parser.add_argument('-r', '--resume', type=str, metavar='PATH', default=None,
                         help='path to latest checkpoint (default: None)')
-    parser.add_argument('-n', '--num_classes', type=int, metavar='N', default=21843,
+    parser.add_argument('-n', '--num_classes', type=int, metavar='N', default=1000,
                         help='number of classes')
     parser.add_argument('-s', '--img_size', type=int, metavar='N', default=224,
                         help='image size to crop (default: 224)')

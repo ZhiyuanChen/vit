@@ -46,6 +46,7 @@ def main(args):
 
     print("creating model '{}'".format(args.arch))
     model = getattr(models, args.arch)(**vars(args))
+    print(model)
 
     if args.sync_bn:
         print('Convery model with Sync BatchNormal')
