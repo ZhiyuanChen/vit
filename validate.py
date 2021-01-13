@@ -92,16 +92,16 @@ def validate(loader, model, criterion, args, logger=None, writer=None):
     iteration = 0
     # It is crucial to build a new fetcher at each epoch
     fetcher = data.DataFetcher(loader)
-    images, target = next(fetcher)
+    images, targets = next(fetcher)
 
     while images is not None:
         iteration += 1
-        with torch.no_grad():
-            output = model(images)
-            loss = criterion(output, target)
+
+        output = model(images)
+        loss = criterion(output, targets)
 
         # measure accuracy
-        acc1, acc5 = accuracy(output.data, target, topk=(1, 5))
+        acc1, acc5 = accuracy(output.data, targets, topk=(1, 5))
         reduced_loss = loss.data
 
         # average loss and accuracy across processes for logging
@@ -141,7 +141,7 @@ def validate(loader, model, criterion, args, logger=None, writer=None):
                 top1=top1,
                 top5=top5))
 
-        images, target = next(fetcher)
+        images, targets = next(fetcher)
 
     print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
 
