@@ -75,7 +75,7 @@ def main(args):
 
     print("length of validation dataset '{}'".format(len(val_loader)))
 
-    validate(val_loader, model, criterion, args, logger, writer)
+    validate(val_loader, model, criterion, args, logger)
 
 
 @torch.no_grad()

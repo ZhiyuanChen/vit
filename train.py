@@ -146,7 +146,7 @@ def main(args):
 
         acc1, acc5, loss = train(train_loader, model, train_criterion, optimizer,
                                  scheduler, epoch, args, logger, writer, mixup_fn)
-        # acc1, acc5, loss = validate(val_loader, model, val_criterion, args, logger, writer)
+        acc1, acc5, loss = validate(val_loader, model, val_criterion, args, logger, writer)
 
         # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
         if writer:
