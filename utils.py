@@ -98,10 +98,10 @@ def setup_print(proc_id):
     import builtins as __builtin__
     builtin_print = __builtin__.print
 
-    def print(*args, file=None, **kwargs):
+    def print(*args, end='\n', file=None, **kwargs):
         force = kwargs.pop('force', False)
         if proc_id == 0 or force:
-            logger.info(*args, **kwargs) if logger else builtin_print(*args, file=file, **kwargs)
+            logger.info(*args, **kwargs) if logger else builtin_print(*args, end=end, file=file, **kwargs)
 
     __builtin__.print = print
 
