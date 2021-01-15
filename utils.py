@@ -17,66 +17,48 @@ import subprocess
 from functools import wraps
 
 
-def catch(func, error=Exception):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            result = func(*args, **kwargs)
-            return result
-        except error as e:
-            print(error)
-
-    return wrapper
+def catch(error=Exception, exclude=None):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                result = func(*args, **kwargs)
+                return result
+            except error as e:
+                if exclude is not None and isinstance(e, exclude):
+                    raise e
+                print(f'{e} encoutered when calling {func} with args {args} and kwargs {kwargs}')
+        return wrapper
+    return decorator
 
 
 def init(args):
-    proc_id = 0
-    if args.slurm:
-        proc_id = int(os.environ['SLURM_PROCID'])
-        ntasks = int(os.environ['SLURM_NTASKS'])
-        node_list = os.environ['SLURM_NODELIST']
-        num_gpus = torch.cuda.device_count()
-        addr = subprocess.getoutput(
-            'scontrol show hostname {} | head -n1'.format(node_list))
-        local_rank = proc_id % num_gpus
-        os.environ['MASTER_PORT'] = args.port
-        os.environ['MASTER_ADDR'] = addr
-        os.environ['WORLD_SIZE'] = str(ntasks)
-        os.environ['RANK'] = str(proc_id)
-        os.environ['LOCAL_RANK'] = str(local_rank)
-        args.local_rank = local_rank
-
-    cudnn.benchmark = True
-    if args.deterministic:
-        cudnn.benchmark = False
-        cudnn.deterministic = True
-        torch.manual_seed(args.local_rank)
-        torch.set_printoptions(precision=10)
-
-    args.distributed = False
-    if 'WORLD_SIZE' in os.environ:
-        args.distributed = int(os.environ['WORLD_SIZE']) >= 1
-
-    args.gpu = 0
-    args.world_size = 1
-
-    if args.distributed:
-        args.gpu = args.local_rank
-        torch.cuda.set_device(args.gpu)
-        torch.distributed.init_process_group(backend='nccl')
-        args.world_size = torch.distributed.get_world_size()
-
-    if args.apex and not torch.backends.cudnn.enabled:
-        raise RuntimeError('Amp requires cudnn backend to be enabled.')
-
-    # proc_id is default to be 0 in case of not distributed
-    global best_acc1, experiment, logger, writer, save_dir
-    best_acc1, experiment, logger, writer, save_dir = 0, None, None, None, None
     name = f'{args.arch}-g{args.gpus}-b{args.batch_size}-e{args.epochs}' \
            f'-d{args.dropout}-gc{args.gradient_clip}-o{args.optimizer}' \
            f'-lr{args.lr}-m{args.momentum}-wd{args.weight_decay}' \
            f'-{args.strategy}-ws{args.warmup_steps}-as{args.accum_steps}' \
-           f'-{args.opt_level}'
+           f'-{args.opt_level}-{args.experiment_id}'
+    proc_id, args.gpu, args.world_size = 0, 0, 1
+
+    if args.slurm:
+        proc_id = setup_slurm(args)
+
+    if 'WORLD_SIZE' in os.environ:
+        args.distributed = int(os.environ['WORLD_SIZE']) >= 1
+
+    if args.distributed:
+        setup_distributed(args)
+
+    if args.deterministic:
+        setup_seed(args.local_rank)
+
+    if args.apex and not torch.backends.cudnn.enabled:
+        raise RuntimeError('Amp requires cudnn backend to be enabled.')
+
+    torch.set_printoptions(precision=10)
+
+    global best_acc1, experiment, logger, writer, save_dir
+    best_acc1, experiment, logger, writer, save_dir = 0, None, None, None, None
     experiment = os.path.join(args.experiment_dir, name.strip('/'))
     save_dir = os.path.join(experiment, args.save_dir)
     if proc_id == 0:
@@ -93,19 +75,40 @@ def init(args):
     return best_acc1, experiment, logger, writer, save_dir
 
 
-def setup_print(proc_id):
-    global logger
-    import builtins as __builtin__
-    builtin_print = __builtin__.print
+@catch()
+def setup_slurm(args):
+    proc_id = int(os.environ['SLURM_PROCID'])
+    ntasks = int(os.environ['SLURM_NTASKS'])
+    node_list = os.environ['SLURM_NODELIST']
+    num_gpus = torch.cuda.device_count()
+    addr = subprocess.getoutput(
+        'scontrol show hostname {} | head -n1'.format(node_list))
+    local_rank = proc_id % num_gpus
+    args.local_rank = local_rank
+    os.environ['MASTER_PORT'] = args.port
+    os.environ['MASTER_ADDR'] = addr
+    os.environ['WORLD_SIZE'] = str(ntasks)
+    os.environ['RANK'] = str(proc_id)
+    os.environ['LOCAL_RANK'] = str(local_rank)
+    return proc_id
 
-    def print(*args, file=None, **kwargs):
-        force = kwargs.pop('force', False)
-        if proc_id == 0 or force:
-            logger.info(*args, **kwargs) if logger else builtin_print(*args, file=file, **kwargs)
 
-    __builtin__.print = print
+@catch()
+def setup_distributed(args):
+    args.gpu = args.local_rank
+    torch.cuda.set_device(args.gpu)
+    torch.distributed.init_process_group(backend='nccl', init_method='env://')
+    args.world_size = torch.distributed.get_world_size()
 
 
+@catch()
+def setup_seed(seed=8992):
+    cudnn.benchmark = False
+    cudnn.deterministic = True
+    torch.manual_seed(seed)
+
+
+@catch()
 def setup_logger(experiment):
     """Creates and returns a fancy logger."""
     # Why is setting up proper logging so !@?#! ugly?
@@ -145,6 +148,20 @@ def setup_logger(experiment):
     return logger
 
 
+@catch()
+def setup_print(proc_id):
+    global logger
+    import builtins as __builtin__
+    builtin_print = __builtin__.print
+
+    def print(*args, end='\n', file=None, **kwargs):
+        force = kwargs.pop('force', False)
+        if proc_id == 0 or force:
+            logger.info(*args, **kwargs) if logger else builtin_print(*args, end=end, file=file, **kwargs)
+
+    __builtin__.print = print
+
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
 
@@ -180,6 +197,7 @@ def accuracy(output, target, topk=(1,)):
     return res
 
 
+@catch()
 def save_checkpoint(state, is_best, save_dir, save_name='checkpoint.pth', best_name=None):
     path = os.path.join(save_dir, save_name)
     torch.save(state, path)
@@ -188,6 +206,7 @@ def save_checkpoint(state, is_best, save_dir, save_name='checkpoint.pth', best_n
         shutil.copyfile(path, best)
 
 
+@catch()
 def load_checkpoint(model, optimizer, scheduler, args):
     if not os.path.isfile(args.checkpoint):
         raise FileNotFoundError('checkpoint ')
@@ -218,8 +237,8 @@ def pos_embed_scale(pos_embed, img_size, patch_size, mode='constant', order=1):
     if pos_embed_length_ckpt == pos_embed_length_model:
         return pos_embed
     print('The length of position embeding in checkpoint is: '
-          f'{pos_embed_length_ckpt}, while in current model, it should be: '
-          f'{pos_embed_length_model}. Performing {mode} interpolation')
+          f'{pos_embed_length_ckpt}, which should be {pos_embed_length_model}'
+          f'in current model. Performing {mode} interpolation')
     pos_embed_tok, pos_embed_grid = pos_embed[:, :1], pos_embed[0, 1:]
     grid_size_ckpt = int(np.sqrt(len(pos_embed_grid)))
     grid_size_model = int(np.sqrt(np.square(img_size) // np.square(patch_size)))
