@@ -135,7 +135,7 @@ def parse():
     parser.add_argument('-w', '--workers', type=int, metavar='N', default=64,
                         help='number of data loading workers (default: 64)')
 
-    parser.set_defaults(train=True, tensorboard=True, log=True, apex=True, slurm=True)
+    parser.set_defaults(train=True, validate=True, tensorboard=True, log=True, apex=True, slurm=True)
     args, unknown = parser.parse_known_args()
     return args
 
@@ -143,15 +143,11 @@ def parse():
 if __name__ == '__main__':
     args = parse()
 
-    if (not args.train) and (not args.validate):
-        args.train = True
-    mode = 'train' if args.train else 'validate'
-
     arguments = list()
 
     gpus, gres_gpu, ntasks_per_node = set_gpu(args.gpus)
-    command = comm.format(args.job_name, args.partition, gpus, gres_gpu,
-                          ntasks_per_node)
+    command = comm.format(args.job_name + args.experiment_id, args.partition,
+                          gpus, gres_gpu, ntasks_per_node)
 
     for k, v in vars(args).items():
         if v is None or k in ('train', 'validate'):
@@ -166,7 +162,7 @@ if __name__ == '__main__':
         command += ' ' + prof.format(
             os.path.join(args.profile_dir, args.profile_name))
     arguments = ' '.join(arguments)
-    command += f' python -u {mode}.py ' + arguments
+    command += f' python -u main.py ' + arguments
     command = ' '.join(command.split())
     print(command)
     res = subprocess.run(command, shell=True)
