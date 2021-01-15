@@ -55,8 +55,6 @@ def init(args):
     if args.apex and not torch.backends.cudnn.enabled:
         raise RuntimeError('Amp requires cudnn backend to be enabled.')
 
-    torch.set_printoptions(precision=10)
-
     global best_acc1, experiment, logger, writer, save_dir
     best_acc1, experiment, logger, writer, save_dir = 0, None, None, None, None
     experiment = os.path.join(args.experiment_dir, name.strip('/'))
@@ -99,6 +97,7 @@ def setup_distributed(args):
     torch.cuda.set_device(args.gpu)
     torch.distributed.init_process_group(backend='nccl', init_method='env://')
     args.world_size = torch.distributed.get_world_size()
+    torch.set_printoptions(precision=10)
 
 
 @catch()
