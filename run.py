@@ -27,6 +27,8 @@ def parse():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('-t', '--train', action='store_true')
     mode.add_argument('-v', '--validate', action='store_true', help='validate model')
+    parser.add_argument('-id', '--experiment_id', type=str, default='6254',
+                        help='id of experiment')
 
     # Log
     parser.add_argument('-tb', '--tensorboard', action='store_true',
