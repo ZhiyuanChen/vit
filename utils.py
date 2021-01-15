@@ -233,6 +233,29 @@ def load_checkpoint(model, optimizer, scheduler, args):
     print(f'=> loaded checkpoint "{args.checkpoint}" (epoch {checkpoint["epoch"]}')
 
 
+@catch()
+def pos_embed_scale(pos_embed, img_size, patch_size, mode='constant', order=1):
+    pos_embed_length_ckpt = pos_embed.shape[1]
+    pos_embed_length_model = np.square(img_size) // np.square(patch_size) + 1
+    if pos_embed_length_ckpt == pos_embed_length_model:
+        return pos_embed
+    print('The length of position embeding in checkpoint is: '
+          f'{pos_embed_length_ckpt}, which should be {pos_embed_length_model}'
+          f'in current model. Performing {mode} interpolation')
+    device = pos_embed.device
+    pos_embed = pos_embed.cpu()
+    pos_embed_tok, pos_embed_grid = pos_embed[:, :1], pos_embed[0, 1:]
+    grid_size_ckpt = int(np.sqrt(len(pos_embed_grid)))
+    grid_size_model = int(np.sqrt(np.square(img_size) // np.square(patch_size)))
+    zoom_factor = (grid_size_model/ grid_size_ckpt, grid_size_model/ grid_size_ckpt, 1)
+    pos_embed_grid = pos_embed_grid.reshape(grid_size_ckpt, grid_size_ckpt, -1)
+    # TODO use torch.interpolate for zoom
+    pos_embed_grid = torch.from_numpy(zoom(pos_embed_grid, zoom_factor, mode=mode, order=order))
+    pos_embed_grid = pos_embed_grid.reshape(1, grid_size_model * grid_size_model, -1)
+    pos_embed = torch.cat((pos_embed_tok, pos_embed_grid), dim=1).to(device)
+    return pos_embed
+
+
 def reduce_tensor(tensor, world_size):
     rt = tensor.clone()
     dist.all_reduce(rt, op=dist.reduce_op.SUM)
@@ -242,26 +265,6 @@ def reduce_tensor(tensor, world_size):
 
 def reduce_tensors(*tensors, world_size):
     return [reduce_tensor(tensor, world_size) for tensor in tensors]
-
-
-def pos_embed_scale(pos_embed, img_size, patch_size, mode='constant', order=1):
-    pos_embed_length_ckpt = pos_embed.shape[1]
-    pos_embed_length_model = np.square(img_size) // np.square(patch_size) + 1
-    if pos_embed_length_ckpt == pos_embed_length_model:
-        return pos_embed
-    print('The length of position embeding in checkpoint is: '
-          f'{pos_embed_length_ckpt}, which should be {pos_embed_length_model}'
-          f'in current model. Performing {mode} interpolation')
-    pos_embed_tok, pos_embed_grid = pos_embed[:, :1], pos_embed[0, 1:]
-    grid_size_ckpt = int(np.sqrt(len(pos_embed_grid)))
-    grid_size_model = int(np.sqrt(np.square(img_size) // np.square(patch_size)))
-    zoom_factor = (grid_size_model/ grid_size_ckpt, grid_size_model/ grid_size_ckpt, 1)
-    pos_embed_grid = pos_embed_grid.reshape(grid_size_ckpt, grid_size_ckpt, -1)
-    # TODO use torch.interpolate for zoom
-    pos_embed_grid = torch.from_numpy(zoom(pos_embed_grid, zoom_factor, mode=mode, order=order))
-    pos_embed_grid = pos_embed_grid.reshape(1, grid_size_model * grid_size_model, -1)
-    pos_embed = torch.cat((pos_embed_tok, pos_embed_grid), axis=1)
-    return pos_embed
 
 
 class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
