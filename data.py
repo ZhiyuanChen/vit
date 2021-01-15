@@ -45,13 +45,6 @@ class ImageFolder(datasets.ImageFolder):
         return im
 
 
-def to_python_float(t):
-    if hasattr(t, 'item'):
-        return t.item()
-    else:
-        return t[0]
-
-
 class DataFetcher(object):
     def __init__(self, loader):
         self.iter = iter(loader)
