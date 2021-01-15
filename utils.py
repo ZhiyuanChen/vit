@@ -218,7 +218,7 @@ def load_checkpoint(model, optimizer, scheduler, args):
         best_acc1 = checkpoint['best_acc1']
         optimizer.load_state_dict(checkpoint['optimizer'])
         scheduler.load_state_dict(checkpoint['scheduler'])
-    if args.tune:
+    if args.tune and args.start_epoch == 0:
         print(f'=> setting head to zeros and remove pre_logits for tuning')
         hidden_width = state_dict['head.weight'].shape[1]
         state_dict['head.weight'] = torch.zeros(args.num_classes, hidden_width)
