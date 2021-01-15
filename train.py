@@ -35,7 +35,7 @@ def main(args):
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
     print("creating model '{}'".format(args.arch))
-    model = getattr(models, args.arch)(**vars(args))
+    model = getattr(models, args.arch)(pre_size=args.tune, **vars(args))
 
     if args.sync_bn:
         print('Convery model with Sync BatchNormal')
@@ -57,23 +57,6 @@ def main(args):
         optimizer = getattr(torch.optim, args.optimizer)(
                         model.parameters(), args.lr,
                         weight_decay=args.weight_decay)
-                        
-
-    if args.resume:
-        resume(model, optimizer, args)
-
-    if APEX_AVAILABLE:
-        model, optimizer = amp.initialize(
-            model,
-            optimizer,
-            opt_level=args.opt_level,
-            keep_batchnorm_fp32=args.keep_batchnorm_fp32,
-            loss_scale=args.loss_scale)
-
-    if args.distributed:
-        model = DDP(model)
-
-    criterion = nn.CrossEntropyLoss().cuda()
 
     print("loading training set from '{}'".format(args.train_data))
     print("loading validation set from '{}'".format(args.val_data))
@@ -89,9 +72,8 @@ def main(args):
         data.load_data(args.train_data, train_transform, args.batch_size,
                        args.workers, memory_format)
     val_dataset, val_sampler, val_loader = \
-        data.load_data(args.val_data, val_transform, args.batch_size, args.workers,
-                       memory_format, shuffle=False)
-
+        data.load_data(args.val_data, val_transform, args.batch_size,
+                       args.workers, memory_format, shuffle=False)
     print("length of traning dataset '{}'".format(len(train_loader)))
     print("length of validation dataset '{}'".format(len(val_loader)))
 
@@ -101,6 +83,22 @@ def main(args):
                             strategy=args.strategy,
                             warmup_steps=args.warmup_steps,
                             accum_steps=args.accum_steps)
+
+    if args.checkpoint:
+        load_checkpoint(model, optimizer, scheduler, args)
+
+    if APEX_AVAILABLE:
+        model, optimizer = amp.initialize(
+            model,
+            optimizer,
+            opt_level=args.opt_level,
+            keep_batchnorm_fp32=args.keep_batchnorm_fp32,
+            loss_scale=args.loss_scale)
+
+    if args.distributed:
+        model = DDP(model)
+
+    criterion = nn.CrossEntropyLoss().cuda()
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:

@@ -211,11 +211,25 @@ def load_checkpoint(model, optimizer, scheduler, args):
         raise FileNotFoundError('checkpoint ')
     print(f'=> loading checkpoint "{args.checkpoint}"')
     checkpoint = torch.load(args.checkpoint, map_location=lambda storage, loc: storage.cuda(args.gpu))
-    args.start_epoch = checkpoint['epoch']
-    best_acc1 = checkpoint['best_acc1']
-    model.load_state_dict(checkpoint['state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
-    scheduler.load_state_dict(checkpoint['scheduler'])
+    state_dict = checkpoint
+    if 'state_dict' in checkpoint:
+        state_dict = checkpoint['state_dict']
+        args.start_epoch = checkpoint['epoch']
+        best_acc1 = checkpoint['best_acc1']
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        scheduler.load_state_dict(checkpoint['scheduler'])
+    if args.tune:
+        print(f'=> setting head to zeros and remove pre_logits for tuning')
+        hidden_width = state_dict['head.weight'].shape[1]
+        state_dict['head.weight'] = torch.zeros(args.num_classes, hidden_width)
+        state_dict['head.bias'] = torch.zeros(args.num_classes)
+        if 'pre_logits.weight' in state_dict.keys():
+            del state_dict['pre_logits.weight'] 
+        if 'pre_logits.bias' in state_dict.keys():
+            del state_dict['pre_logits.bias']
+    pos_embed = state_dict['pos_embed']
+    state_dict['pos_embed'] = pos_embed_scale(pos_embed, img_size=args.img_size, patch_size=16)
+    model.load_state_dict(state_dict)
     print(f'=> loaded checkpoint "{args.checkpoint}" (epoch {checkpoint["epoch"]}')
 
 

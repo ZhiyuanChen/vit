@@ -25,7 +25,8 @@ def parse():
     parser = argparse.ArgumentParser(description='Vision Transformer')
 
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument('-t', '--train', action='store_true')
+    mode.add_argument('-t', '--train', action='store_true', help='train model')
+    mode.add_argument('-u', '--tune', action='store_true', help='tune model')
     mode.add_argument('-v', '--validate', action='store_true', help='validate model')
     parser.add_argument('-id', '--experiment_id', type=str, default='6254',
                         help='id of experiment')
@@ -64,7 +65,7 @@ def parse():
     # Model
     parser.add_argument('-pt', '--pretrained', action='store_true', help='use pre-trained model')
     parser.add_argument('-c', '--checkpoint', type=str,
-                        default='/mnt/lustre/chenzhiyuan1/pyvit/checkpoints/21kl16.pth',
+                        default=None,
                         help='checkpoint to validate')
     parser.add_argument('-r', '--resume', type=str, metavar='PATH', default=None,
                         help='path to latest checkpoint (default: None)')
