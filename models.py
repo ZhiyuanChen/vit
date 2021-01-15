@@ -87,10 +87,6 @@ class Encoder(nn.Module):
                  attn_bias=True, attn_scaling=None, attn_dropout=0.,
                  norm=nn.LayerNorm, drop_prob=0.):
         super().__init__()
-        num_patches = (img_size // patches) ** 2
-        self.pos_embed = nn.Parameter(
-            torch.zeros(1, num_patches + 1, hidden_size))
-        self.dropout = nn.Dropout(dropout)
         drop_probs = [x.item() for x in torch.linspace(0, drop_prob, num_layers)]
         self.blocks = nn.ModuleList(
             [Encoder1DBlock(
@@ -101,14 +97,8 @@ class Encoder(nn.Module):
             ) for i in range(num_layers)]
         )
         self.norm = norm(hidden_size)
-        self.apply(self._init)
-
-    def _init(self, module):
-        nn.init.normal_(self.pos_embed, std=0.02)
 
     def forward(self, x):
-        x = x + self.pos_embed
-        x = self.dropout(x)
         for block in self.blocks:
            x = block(x)
         x = self.norm(x)
@@ -127,6 +117,10 @@ class VisionTransformer(nn.Module):
         self.embedding = nn.Conv2d(
             3, hidden_size, kernel_size=patches, stride=patches)
         self.cls_token = nn.Parameter(torch.zeros(1, 1, hidden_size))
+        num_patches = (img_size // patches) ** 2
+        self.pos_embed = nn.Parameter(
+            torch.zeros(1, num_patches + 1, hidden_size))
+        self.dropout = nn.Dropout(dropout)
         self.encoder = Encoder(img_size, patches, hidden_size, num_layers,
             num_heads, mlp_ratio, dropout, attn_bias, attn_scaling,
             attn_dropout, norm)
@@ -139,6 +133,7 @@ class VisionTransformer(nn.Module):
         self.apply(self._init)
 
     def _init(self, module):
+        nn.init.normal_(self.pos_embed, std=0.02)
         nn.init.trunc_normal_(self.cls_token, std=0.2)
         if isinstance(module, nn.Linear):
             nn.init.trunc_normal_(module.weight, std=.02)
@@ -153,6 +148,8 @@ class VisionTransformer(nn.Module):
         x = self.embedding(x).flatten(2).transpose(1, 2)
         cls_tokens = self.cls_token.expand(B, -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
+        x = x + self.pos_embed
+        x = self.dropout(x)
         x = self.encoder(x)
         x = self.pre_logits(x)
         x = self.tanh(x)
