@@ -27,7 +27,7 @@ def catch(error=Exception, exclude=None):
             except error as e:
                 if exclude is not None and isinstance(e, exclude):
                     raise e
-                print(f'{e} encoutered when calling {func} with args {args} and kwargs {kwaegs}')
+                print(f'{e} encoutered when calling {func} with args {args} and kwargs {kwargs}')
         return wrapper
     return decorator
 
