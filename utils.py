@@ -206,7 +206,7 @@ def save_checkpoint(state, is_best, save_dir, save_name='checkpoint.pth', best_n
 
 
 @catch()
-def load_checkpoint(model, optimizer, scheduler, args):
+def load_checkpoint(model, args, optimizer=None, scheduler=None, best_acc1=0):
     if not os.path.isfile(args.checkpoint):
         raise FileNotFoundError('checkpoint ')
     print(f'=> loading checkpoint "{args.checkpoint}"')
@@ -214,10 +214,14 @@ def load_checkpoint(model, optimizer, scheduler, args):
     state_dict = checkpoint
     if 'state_dict' in checkpoint:
         state_dict = checkpoint['state_dict']
-        args.start_epoch = checkpoint['epoch']
-        best_acc1 = checkpoint['best_acc1']
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        scheduler.load_state_dict(checkpoint['scheduler'])
+        if 'epoch' in checkpoint.keys():
+            args.start_epoch = checkpoint['epoch']
+        if 'best_acc1' in checkpoint.keys():
+            best_acc1 = checkpoint['best_acc1']
+        if optimizer is not None and 'optimizer' in checkpoint.keys():
+            optimizer.load_state_dict(checkpoint['optimizer'])
+        if scheduler is not None and 'scheduler' in checkpoint.keys():
+            scheduler.load_state_dict(checkpoint['scheduler'])
     if args.tune and args.start_epoch == 0:
         print(f'=> setting head to zeros and remove pre_logits for tuning')
         hidden_width = state_dict['head.weight'].shape[1]
@@ -231,6 +235,7 @@ def load_checkpoint(model, optimizer, scheduler, args):
     state_dict['pos_embed'] = pos_embed_scale(pos_embed, img_size=args.img_size, patch_size=16)
     model.load_state_dict(state_dict)
     print(f'=> loaded checkpoint "{args.checkpoint}" (epoch {checkpoint["epoch"]}')
+    return best_acc1
 
 
 @catch()
