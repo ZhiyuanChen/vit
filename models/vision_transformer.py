@@ -1,22 +1,9 @@
 import torch
 import torch.nn as nn
+
 from functools import partial
 
-
-class DropModule(nn.Module):
-    def __init__(self, drop_prob=0., epislon=1e-7):
-        self.drop_prob = drop_prob
-        self.epislon = epislon
-
-    def forward(self, x):
-        if not self.training or self.drop_prob < self.epislon:
-            return x
-        keep_prob = 1 - self.drop_prob
-        shape = (x.shape[0],) + (1,) * (x.ndim - 1)
-        random_tensor = keep_prob + torch.rand(shape, dtype=x.dtype, device=x.device)
-        random_tensor.floor_()
-        output = x.div(keep_prob) * random_tensor
-        return output
+from .utils import DropModule
 
 
 class MLPBlock(nn.Module):
