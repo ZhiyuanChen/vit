@@ -1,12 +1,14 @@
 import sys
 import os
 import random
+import math
 
 from io import BytesIO
 from functools import partial
 
 import torch
 import torch.nn as nn
+import torch.distributed as dist
 import torchvision.datasets as datasets
 
 from PIL import Image
@@ -83,7 +85,61 @@ class DataFetcher(object):
         return input, target
 
 
-def fast_collate(batch, memory_format=None):
+class RepeatedAugmentSampler(torch.utils.data.Sampler):
+    """Sampler that restricts data loading to a subset of the dataset for distributed,
+    with repeated augmentation.
+    It ensures that different each augmented version of a sample will be visible to a
+    different process (GPU)
+    Heavily based on torch.utils.data.DistributedSampler
+    """
+
+    def __init__(self, dataset, num_replicas=None, rank=None, shuffle=True):
+        if num_replicas is None:
+            if not dist.is_available():
+                raise RuntimeError("Requires distributed package to be available")
+            num_replicas = dist.get_world_size()
+        if rank is None:
+            if not dist.is_available():
+                raise RuntimeError("Requires distributed package to be available")
+            rank = dist.get_rank()
+        self.dataset = dataset
+        self.num_replicas = num_replicas
+        self.rank = rank
+        self.epoch = 0
+        self.num_samples = int(math.ceil(len(self.dataset) * 3.0 / self.num_replicas))
+        self.total_size = self.num_samples * self.num_replicas
+        # self.num_selected_samples = int(math.ceil(len(self.dataset) / self.num_replicas))
+        self.num_selected_samples = int(math.floor(len(self.dataset) // 256 * 256 / self.num_replicas))
+        self.shuffle = shuffle
+
+    def __iter__(self):
+        # deterministically shuffle based on epoch
+        g = torch.Generator()
+        g.manual_seed(self.epoch)
+        if self.shuffle:
+            indices = torch.randperm(len(self.dataset), generator=g).tolist()
+        else:
+            indices = list(range(len(self.dataset)))
+
+        # add extra samples to make it evenly divisible
+        indices = [ele for ele in indices for i in range(3)]
+        indices += indices[:(self.total_size - len(indices))]
+        assert len(indices) == self.total_size
+
+        # subsample
+        indices = indices[self.rank:self.total_size:self.num_replicas]
+        assert len(indices) == self.num_samples
+
+        return iter(indices[:self.num_selected_samples])
+
+    def __len__(self):
+        return self.num_selected_samples
+
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+
+
+def fast_collate(batch, memory_format):
     imgs = [img[0] for img in batch]
     targets = torch.tensor([target[1] for target in batch], dtype=torch.int64)
     w, h = imgs[0].size
@@ -97,21 +153,29 @@ def fast_collate(batch, memory_format=None):
     return tensor, targets
 
 
-def load_data(path, transform, batch_size, num_workers, memory_format, shuffle=None, distributed=True, profile=-1, collate_fn=None):
+def load_data(path, transform, memory_format, batch_size, num_workers,
+              shuffle=True, collate_fn=None, worker_init_fn=None,
+              repeated_aug=False, distributed=True, pin_memory=True,
+              drop_last=False, persistent_workers=False, **kwargs):
     dataset = ImageFolder(path, transform)
 
-    sampler = torch.utils.data.distributed.DistributedSampler(dataset) if distributed else None
+    sampler = RepeatedAugmentSampler(dataset) if repeated_aug else \
+        torch.utils.data.distributed.DistributedSampler(dataset) if distributed else None
 
-    shuffle = (sampler is None) if shuffle is not None else shuffle
+    shuffle = (sampler is None) if shuffle else shuffle
     collate_fn = collate_fn if collate_fn is not None else partial(fast_collate, memory_format=memory_format)
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=shuffle,
-        num_workers=num_workers,
-        pin_memory=True,
         sampler=sampler,
-        collate_fn=collate_fn
+        batch_sampler=None,
+        num_workers=num_workers,
+        collate_fn=collate_fn,
+        pin_memory=pin_memory,
+        drop_last=drop_last,
+        worker_init_fn=worker_init_fn,
+        persistent_workers=persistent_workers
     )
 
     return dataset, sampler, loader
