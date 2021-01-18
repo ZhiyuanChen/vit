@@ -38,7 +38,7 @@ backends = dict(
 )
 
 modes = dict(
-    train=dict(
+    i21k=dict(
         train=True,
         tune=False,
         validate=True,
@@ -48,9 +48,28 @@ modes = dict(
         img_size=224,
         batch_size=64,
         epochs=90,
+        save_freq=10,
         optimizer='AdamW',
         lr=1e-3,
         lr_factor=4096.0,
+        strategy='linear',
+        warmup_steps=5_000,
+        weight_decay=0.3
+    ),
+    train=dict(
+        train=True,
+        tune=False,
+        validate=True,
+        train_data='/mnt/lustre/share_data/ImageNet-Pytorch/train',
+        val_data='/mnt/lustre/share_data/ImageNet-Pytorch/val',
+        num_classes=1000,
+        img_size=224,
+        batch_size=64,
+        epochs=300,
+        save_freq=10,
+        optimizer='AdamW',
+        lr=1e-3,
+        lr_factor=512.0,
         strategy='linear',
         warmup_steps=5_000,
         weight_decay=0.3
