@@ -18,15 +18,6 @@ def convert(npz):
                 continue
             key = reanme(i)
             value = npz[i]
-            if 'pos_embed' in key:
-                posemb_tok, posemb_grid = value[:, :1], value[0, 1:]
-                gs_old = int(np.sqrt(len(posemb_grid)))
-                gs_new = int(np.sqrt(576))
-                posemb_grid = posemb_grid.reshape(gs_old, gs_old, -1)
-                zoom = (gs_new / gs_old, gs_new / gs_old, 1)
-                posemb_grid = scipy.ndimage.zoom(posemb_grid, zoom, order=1)
-                posemb_grid = posemb_grid.reshape(1, gs_new * gs_new, -1)
-                value = np.concatenate([posemb_tok, posemb_grid], axis=1)
             value = torch.tensor(value)
             if 'fc' in key or 'head' in key:
                 value = value.T
@@ -42,9 +33,7 @@ def convert(npz):
                         value = torch.cat((value, torch.tensor(npz[i.replace('query', 'key')]).view(-1, size).T, torch.tensor(npz[i.replace('query', 'value')]).view(-1, size).T))
             elif 'embedding.weight' in key:
                 value = value.permute(3, 2, 0, 1)
-            if 'head' in key:
-                value = torch.zeros(1000, 1024)
-            if key != 'encoder.pos_embed':
+            if key != 'pos_embed':
                 value = value.squeeze()
             state_dict[key] = value
     except Exception as e:
@@ -61,7 +50,7 @@ def reanme(s):
     s = s.replace('encoderblock', 'encoder.blocks')
     s = s.replace('norm.0', 'norm1').replace('norm.2', 'norm2')
     s = s.replace('3.Dense.0', 'fc1').replace('3.Dense.1', 'fc2')
-    s = s.replace('posembed.input.pos.embedding', 'encoder.pos_embed')
+    s = s.replace('posembed.input.pos.embedding', 'pos_embed')
     s = s.replace('out', 'out_proj').replace('query', 'in_proj')
     s = s.replace('norm.bias', 'encoder.norm.bias')
     s = s.replace('norm.weight', 'encoder.norm.weight')

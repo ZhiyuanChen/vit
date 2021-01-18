@@ -4,18 +4,18 @@ import random
 import math
 
 from io import BytesIO
-
-from PIL import Image
+from functools import partial
 
 import torch
 import torch.nn as nn
 import torch.distributed as dist
 import torchvision.datasets as datasets
 
+from PIL import Image
+import numpy as np
+
 sys.path.append(r'/mnt/lustre/share/pymc/py3')
 import mc
-
-import numpy as np
 
 from utils import catch
 
@@ -34,7 +34,6 @@ def to_python_float(t):
 class ImageFolder(datasets.ImageFolder):
     def __init__(self, *args, **kwargs):
         super().__init__(loader=self._loader, *args, **kwargs)
-        self._init_memcached()
 
     def _init_memcached(self):
         server_list = '/mnt/lustre/share/memcached_client/server_list.conf'
@@ -42,6 +41,7 @@ class ImageFolder(datasets.ImageFolder):
         self.client = mc.MemcachedClient.GetInstance(server_list, client)
 
     def _loader(self, path):
+        self._init_memcached()
         try:
             value = mc.pyvector()
             self.client.Get(path, value)
@@ -161,23 +161,29 @@ def fast_collate(batch, memory_format):
     return tensor, targets
 
 
-def load_data(path, transform, batch_size, num_workers, memory_format, shuffle=None, repeated_aug=False,
-              distributed=True, collate_fn=None):
+def load_data(path, transform, memory_format, batch_size, num_workers,
+              shuffle=True, collate_fn=None, worker_init_fn=None,
+              repeated_aug=False, distributed=True, pin_memory=True,
+              drop_last=False, persistent_workers=False, **kwargs):
     dataset = ImageFolder(path, transform)
 
     sampler = RepeatedAugmentSampler(dataset) if repeated_aug else \
         torch.utils.data.distributed.DistributedSampler(dataset) if distributed else None
 
-    shuffle = (sampler is None) if shuffle is not None else shuffle
-    collate_fn = collate_fn if collate_fn is not None else lambda b: fast_collate(b, memory_format)
+    shuffle = (sampler is None) if shuffle else shuffle
+    collate_fn = collate_fn if collate_fn is not None else partial(fast_collate, memory_format=memory_format)
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=shuffle,
-        num_workers=num_workers,
-        pin_memory=True,
         sampler=sampler,
-        collate_fn=collate_fn
+        batch_sampler=None,
+        num_workers=num_workers,
+        collate_fn=collate_fn,
+        pin_memory=pin_memory,
+        drop_last=drop_last,
+        worker_init_fn=worker_init_fn,
+        persistent_workers=persistent_workers
     )
 
     return dataset, sampler, loader

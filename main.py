@@ -10,7 +10,6 @@ from tqdm import tqdm
 
 import models
 import data
-from validate import validate
 from utils import *
 from run import parse
 from timm.data import create_transform, Mixup
@@ -45,8 +44,7 @@ def main(args):
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
     print("creating model '{}'".format(args.arch))
-    model = getattr(models, args.arch)(**vars(args))
-    print(model)
+    model = getattr(models, args.arch)(pre_size=args.tune, **vars(args))
 
     if args.sync_bn:
         print('Convery model with Sync BatchNormal')
@@ -60,17 +58,68 @@ def main(args):
     args.final_lr = args.final_lr * scale_factor
     args.warmup_steps = args.warmup_steps // scale_factor
 
-    if args.optimizer in ('SGD', 'RMSprop'):
-        optimizer = getattr(torch.optim, args.optimizer)(
-            model.parameters(), args.lr, momentum=args.momentum,
-            weight_decay=args.weight_decay)
-    else:
-        optimizer = getattr(torch.optim, args.optimizer)(
-            model.parameters(), args.lr,
-            weight_decay=args.weight_decay)
+    optimizer = None
+    scheduler = None
+    if args.train:
+        if args.optimizer in ('SGD', 'RMSprop'):
+            optimizer = getattr(torch.optim, args.optimizer)(
+                            model.parameters(), args.lr, momentum=args.momentum,
+                            weight_decay=args.weight_decay)
+        else:
+            optimizer = getattr(torch.optim, args.optimizer)(
+                            model.parameters(), args.lr,
+                            weight_decay=args.weight_decay)
+            print("loading training set from '{}'".format(args.train_data))
+        # color_jitter = (float(args.color_jitter),) * 3
+        # train_transform = transforms.Compose([
+        #     transforms.RandomResizedCrop(args.img_size),
+        #     transforms.RandomHorizontalFlip(),
+        #     transforms.ColorJitter(*color_jitter),
+        #     getattr(autoaugment, 'ImageNet')
+        # ])
+        train_transform = create_transform(
+            input_size=args.img_size,
+            is_training=True,
+            use_prefetcher=True,
+            color_jitter=args.color_jitter,
+            auto_augment=args.auto_augment,
+            interpolation=args.train_interpolation,
+            re_prob=args.random_erase_prob,
+            re_mode=args.random_erase_mode,
+            re_count=args.random_erase_count,
+        )
+        train_transform.transforms = train_transform.transforms[:-1]
 
-    if args.resume:
-        resume(model, optimizer, args)
+        train_dataset, train_sampler, train_loader = \
+            data.load_data(args.train_data, train_transform, memory_format,
+                           shuffle=False, **vars(args))
+
+        print("length of traning dataset '{}'".format(len(train_loader)))
+        scheduler = LRScheduler(optimizer,
+                                steps=args.epochs * len(train_loader),
+                                final_lr=args.final_lr,
+                                strategy=args.strategy,
+                                warmup_steps=args.warmup_steps,
+                                accum_steps=args.accum_steps)
+    if args.validate:
+        print("loading validation set from '{}'".format(args.val_data))
+        # val_transform = create_transform(
+        #    input_size=args.img_size,
+        #    is_training=False,
+        #    use_prefetcher=True,
+        #    interpolation=args.train_interpolation,
+        # )
+        val_transform = transforms.Compose([
+            transforms.Resize(args.img_size),
+            transforms.CenterCrop(args.img_size),
+        ])
+        val_dataset, val_sampler, val_loader = \
+            data.load_data(args.val_data, val_transform, memory_format,
+                           shuffle=False, **vars(args))
+        print("length of validation dataset '{}'".format(len(val_loader)))
+
+    if args.checkpoint:
+        best_acc1 = load_checkpoint(model, args, optimizer, scheduler, best_acc1)
 
     if APEX_AVAILABLE:
         model, optimizer = amp.initialize(
@@ -91,62 +140,17 @@ def main(args):
         train_criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
     train_criterion.cuda()
 
-    print("loading training set from '{}'".format(args.train_data))
-    print("loading validation set from '{}'".format(args.val_data))
-    # color_jitter = (float(args.color_jitter),) * 3
-    # train_transform = transforms.Compose([
-    #     transforms.RandomResizedCrop(args.img_size),
-    #     transforms.RandomHorizontalFlip(),
-    #     transforms.ColorJitter(*color_jitter),
-    #     getattr(autoaugment, 'ImageNet')
-    # ])
-    train_transform = create_transform(
-        input_size=args.img_size,
-        is_training=True,
-        use_prefetcher=True,
-        color_jitter=args.color_jitter,
-        auto_augment=args.auto_augment,
-        interpolation=args.train_interpolation,
-        re_prob=args.random_erase_prob,
-        re_mode=args.random_erase_mode,
-        re_count=args.random_erase_count,
-    )
-    train_transform.transforms = train_transform.transforms[:-1]
-    val_transform = transforms.Compose([
-        transforms.Resize(args.img_size),
-        transforms.CenterCrop(args.img_size),
-    ])
-    # val_transform = create_transform(
-    #    input_size=args.img_size,
-    #    is_training=False,
-    #    use_prefetcher=True,
-    #    interpolation=args.train_interpolation,
-    # )
-
-    train_dataset, train_sampler, train_loader = \
-        data.load_data(args.train_data, train_transform, args.batch_size,
-                       args.workers, memory_format, repeated_aug=args.repeated_aug)
-    val_dataset, val_sampler, val_loader = \
-        data.load_data(args.val_data, val_transform, args.batch_size, args.workers,
-                       memory_format, shuffle=False)
-
-    print("length of traning dataset '{}'".format(len(train_loader)))
-    print("length of validation dataset '{}'".format(len(val_loader)))
-
-    scheduler = LRScheduler(optimizer,
-                            steps=args.epochs * len(train_loader),
-                            final_lr=args.final_lr,
-                            strategy=args.strategy,
-                            warmup_steps=args.warmup_steps,
-                            accum_steps=args.accum_steps)
-
     for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
 
-        acc1, acc5, loss = train(train_loader, model, train_criterion, optimizer,
-                                 scheduler, epoch, args, logger, writer, mixup_fn)
-        acc1, acc5, loss = validate(val_loader, model, val_criterion, args, logger, writer)
+        if args.train:
+            if args.distributed:
+                train_sampler.set_epoch(epoch)
+            acc1, acc5, loss = train(train_loader, model, train_criterion,
+                                      optimizer, scheduler, epoch, args,
+                                      logger, writer, mixup_fn)
+        if args.validate:
+            acc1, acc5, loss = validate(val_loader, model, val_criterion, args, 
+                                        logger, writer)
 
         # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
         if writer:
@@ -241,9 +245,9 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
                     reduced_loss, acc1, acc5, world_size=args.world_size)
 
             # to_python_float incurs a host<->device sync
-            losses.update(data.to_python_float(reduced_loss), images.size(0))
-            top1.update(data.to_python_float(acc1), images.size(0))
-            top5.update(data.to_python_float(acc5), images.size(0))
+            losses.update(to_python_float(reduced_loss), images.size(0))
+            top1.update(to_python_float(acc1), images.size(0))
+            top5.update(to_python_float(acc5), images.size(0))
             lr = optimizer.param_groups[0]['lr']
 
             # measure elapsed time
@@ -290,6 +294,76 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
 
     optimizer.step()
     optimizer.zero_grad()
+
+    return top1.avg, top5.avg, losses.avg
+
+
+@torch.no_grad()
+def validate(loader, model, criterion, args, logger=None, writer=None):
+    print('evaluating')
+    batch_time = AverageMeter()
+    losses = AverageMeter()
+    top1 = AverageMeter()
+    top5 = AverageMeter()
+
+    model.eval()
+    end = time.time()
+
+    iteration = 0
+    # It is crucial to build a new fetcher at each epoch
+    fetcher = data.DataFetcher(loader)
+    images, targets = next(fetcher)
+
+    while images is not None:
+        iteration += 1
+
+        output = model(images)
+        loss = criterion(output, targets)
+
+        # measure accuracy
+        acc1, acc5 = accuracy(output.data, targets, topk=(1, 5))
+        reduced_loss = loss.data
+
+        # average loss and accuracy across processes for logging
+        if args.distributed:
+            reduced_loss, acc1, acc5 = reduce_tensors(
+                reduced_loss, acc1, acc5, world_size=args.world_size)
+
+        # to_python_float incurs a host<->device sync
+        losses.update(to_python_float(reduced_loss), images.size(0))
+        top1.update(to_python_float(acc1), images.size(0))
+        top5.update(to_python_float(acc5), images.size(0))
+
+        # measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
+        if writer:
+            writer.add_scalar('validate/loss', losses.val, iteration)
+            writer.add_scalar('validate/acc1', top1.val, iteration)
+            writer.add_scalar('validate/acc5', top5.val, iteration)
+
+        # TODO:  Change timings to mirror train().
+        if iteration % args.print_freq == 0:
+            print('Test: [{0}/{1}]\t'
+                  'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
+            # 'Speed {2:.3f} ({3:.3f})\t'
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                  'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                iteration,
+                len(loader),
+                args.world_size * args.batch_size / batch_time.val,
+                args.world_size * args.batch_size / batch_time.avg,
+                batch_time=batch_time,
+                loss=losses,
+                top1=top1,
+                top5=top5))
+
+        images, targets = next(fetcher)
+
+    print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
 
     return top1.avg, top5.avg, losses.avg
 

@@ -55,8 +55,6 @@ def init(args):
     if args.apex and not torch.backends.cudnn.enabled:
         raise RuntimeError('Amp requires cudnn backend to be enabled.')
 
-    torch.set_printoptions(precision=10)
-
     global best_acc1, experiment, logger, writer, save_dir
     best_acc1, experiment, logger, writer, save_dir = 0, None, None, None, None
     experiment = os.path.join(args.experiment_dir, name.strip('/'))
@@ -99,6 +97,7 @@ def setup_distributed(args):
     torch.cuda.set_device(args.gpu)
     torch.distributed.init_process_group(backend='nccl', init_method='env://')
     args.world_size = torch.distributed.get_world_size()
+    torch.set_printoptions(precision=10)
 
 
 @catch()
@@ -207,17 +206,66 @@ def save_checkpoint(state, is_best, save_dir, save_name='checkpoint.pth', best_n
 
 
 @catch()
-def load_checkpoint(model, optimizer, scheduler, args):
+def load_checkpoint(model, args, optimizer=None, scheduler=None, best_acc1=0):
     if not os.path.isfile(args.checkpoint):
         raise FileNotFoundError('checkpoint ')
     print(f'=> loading checkpoint "{args.checkpoint}"')
     checkpoint = torch.load(args.checkpoint, map_location=lambda storage, loc: storage.cuda(args.gpu))
-    args.start_epoch = checkpoint['epoch']
-    best_acc1 = checkpoint['best_acc1']
-    model.load_state_dict(checkpoint['state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
-    scheduler.load_state_dict(checkpoint['scheduler'])
+    state_dict = checkpoint
+    if 'state_dict' in checkpoint:
+        state_dict = checkpoint['state_dict']
+        if 'epoch' in checkpoint.keys():
+            args.start_epoch = checkpoint['epoch']
+        if 'best_acc1' in checkpoint.keys():
+            best_acc1 = checkpoint['best_acc1']
+        if optimizer is not None and 'optimizer' in checkpoint.keys():
+            optimizer.load_state_dict(checkpoint['optimizer'])
+        if scheduler is not None and 'scheduler' in checkpoint.keys():
+            scheduler.load_state_dict(checkpoint['scheduler'])
+    if args.tune and args.start_epoch == 0:
+        print(f'=> setting head to zeros and remove pre_logits for tuning')
+        hidden_width = state_dict['head.weight'].shape[1]
+        state_dict['head.weight'] = torch.zeros(args.num_classes, hidden_width)
+        state_dict['head.bias'] = torch.zeros(args.num_classes)
+        if 'pre_logits.weight' in state_dict.keys():
+            del state_dict['pre_logits.weight'] 
+        if 'pre_logits.bias' in state_dict.keys():
+            del state_dict['pre_logits.bias']
+    pos_embed = state_dict['pos_embed']
+    state_dict['pos_embed'] = pos_embed_scale(pos_embed, img_size=args.img_size, patch_size=16)
+    model.load_state_dict(state_dict)
     print(f'=> loaded checkpoint "{args.checkpoint}" (epoch {checkpoint["epoch"]}')
+    return best_acc1
+
+
+@catch()
+def pos_embed_scale(pos_embed, img_size, patch_size, mode='constant', order=1):
+    pos_embed_length_ckpt = pos_embed.shape[1]
+    pos_embed_length_model = np.square(img_size) // np.square(patch_size) + 1
+    if pos_embed_length_ckpt == pos_embed_length_model:
+        return pos_embed
+    print('The length of position embeding in checkpoint is: '
+          f'{pos_embed_length_ckpt}, which should be {pos_embed_length_model}'
+          f'in current model. Performing {mode} interpolation')
+    device = pos_embed.device
+    pos_embed = pos_embed.cpu()
+    pos_embed_tok, pos_embed_grid = pos_embed[:, :1], pos_embed[0, 1:]
+    grid_size_ckpt = int(np.sqrt(len(pos_embed_grid)))
+    grid_size_model = int(np.sqrt(np.square(img_size) // np.square(patch_size)))
+    zoom_factor = (grid_size_model/ grid_size_ckpt, grid_size_model/ grid_size_ckpt, 1)
+    pos_embed_grid = pos_embed_grid.reshape(grid_size_ckpt, grid_size_ckpt, -1)
+    # TODO use torch.interpolate for zoom
+    pos_embed_grid = torch.from_numpy(zoom(pos_embed_grid, zoom_factor, mode=mode, order=order))
+    pos_embed_grid = pos_embed_grid.reshape(1, grid_size_model * grid_size_model, -1)
+    pos_embed = torch.cat((pos_embed_tok, pos_embed_grid), dim=1).to(device)
+    return pos_embed
+
+
+def to_python_float(t):
+    if hasattr(t, 'item'):
+        return t.item()
+    else:
+        return t[0]
 
 
 def reduce_tensor(tensor, world_size):
@@ -229,26 +277,6 @@ def reduce_tensor(tensor, world_size):
 
 def reduce_tensors(*tensors, world_size):
     return [reduce_tensor(tensor, world_size) for tensor in tensors]
-
-
-def pos_embed_scale(pos_embed, img_size, patch_size, mode='constant', order=1):
-    pos_embed_length_ckpt = pos_embed.shape[1]
-    pos_embed_length_model = np.square(img_size) // np.square(patch_size) + 1
-    if pos_embed_length_ckpt == pos_embed_length_model:
-        return pos_embed
-    print('The length of position embeding in checkpoint is: '
-          f'{pos_embed_length_ckpt}, which should be {pos_embed_length_model}'
-          f'in current model. Performing {mode} interpolation')
-    pos_embed_tok, pos_embed_grid = pos_embed[:, :1], pos_embed[0, 1:]
-    grid_size_ckpt = int(np.sqrt(len(pos_embed_grid)))
-    grid_size_model = int(np.sqrt(np.square(img_size) // np.square(patch_size)))
-    zoom_factor = (grid_size_model/ grid_size_ckpt, grid_size_model/ grid_size_ckpt, 1)
-    pos_embed_grid = pos_embed_grid.reshape(grid_size_ckpt, grid_size_ckpt, -1)
-    # TODO use torch.interpolate for zoom
-    pos_embed_grid = torch.from_numpy(zoom(pos_embed_grid, zoom_factor, mode=mode, order=order))
-    pos_embed_grid = pos_embed_grid.reshape(1, grid_size_model * grid_size_model, -1)
-    pos_embed = torch.cat((pos_embed_tok, pos_embed_grid), axis=1)
-    return pos_embed
 
 
 class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
