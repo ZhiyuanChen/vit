@@ -61,11 +61,18 @@ class Encoder1DBlock(nn.Module):
         mlp_dim = int(hidden_size * mlp_ratio)
         self.mlp = MLPBlock(in_channels=hidden_size, hidden_channels=mlp_dim, dropout=dropout)
         self.drop_module = DropModule(drop_prob) if drop_prob > 0. else nn.Identity()
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        x = x + self.drop_module(self.attention(self.norm1(x)))
-        x = x + self.drop_module(self.mlp(self.norm2(x)))
-        return x
+        residual = x.clone()
+        x = self.norm1(x)
+        x = self.attention(x)
+        x = self.drop_module(x)
+        x = x + residual
+        y = self.norm2(x)
+        y = self.mlp(y)
+        y = self.drop_module(y)
+        return x + y
 
 
 class Encoder(nn.Module):
