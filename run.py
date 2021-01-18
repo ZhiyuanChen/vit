@@ -184,7 +184,9 @@ def parse():
                        help='drop out rate')
     model.add_argument('-ado', '--attn_dropout', type=float, metavar='M', default=0.1,
                        help='drop out rate for attention')
-    parser.add_argument('--sync_bn', action='store_true',
+    model.add_argument('-dp', '--drop_prob', type=float, default=0.1,
+                       help='Stochastic depth (default: 0.1)')
+    model.add_argument('--sync_bn', action='store_true',
                         help='enabling apex sync BN.')
 
     train = parser.add_argument_group()
