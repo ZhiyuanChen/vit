@@ -112,13 +112,13 @@ def main(args):
             acc1, acc5, loss = validate(val_loader, model, criterion, args, 
                                         logger, writer)
 
-        # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
+        # This impliies args.tensorboard and proc_id == 0:
         if writer:
             writer.add_scalar('validate/loss', loss, epoch)
             writer.add_scalar('validate/acc1', acc1, epoch)
             writer.add_scalar('validate/acc5', acc5, epoch)
 
-        if int(os.environ['SLURM_PROCID']) == 0:
+        if args.proc_id == 0:
             is_best = acc1 > best_acc1
             best_acc1 = max(acc1, best_acc1)
             net = model.module if args.distributed else model

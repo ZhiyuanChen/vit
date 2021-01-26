@@ -38,10 +38,10 @@ def init(args):
            f'-lr{args.lr}-m{args.momentum}-wd{args.weight_decay}' \
            f'-{args.strategy}-ws{args.warmup_steps}-as{args.accum_steps}' \
            f'-{args.opt_level}-{args.experiment_id}'
-    proc_id, args.gpu, args.world_size = 0, 0, 1
+    args.proc_id, args.gpu, args.world_size = 0, 0, 1
 
     if args.slurm:
-        proc_id = setup_slurm(args)
+        setup_slurm(args)
 
     if 'WORLD_SIZE' in os.environ:
         args.distributed = int(os.environ['WORLD_SIZE']) >= 1
@@ -59,7 +59,7 @@ def init(args):
     best_acc1, experiment, logger, writer, save_dir = 0, None, None, None, None
     experiment = os.path.join(args.experiment_dir, name.strip('/'))
     save_dir = os.path.join(experiment, args.save_dir)
-    if proc_id == 0:
+    if args.proc_id == 0:
         os.makedirs(experiment, exist_ok=True)
         if args.tensorboard:
             from torch.utils.tensorboard import SummaryWriter
@@ -69,26 +69,25 @@ def init(args):
         if args.train:
             os.makedirs(save_dir, exist_ok=True)
 
-    setup_print(proc_id)
+    setup_print(args.proc_id)
     return best_acc1, experiment, logger, writer, save_dir
 
 
 @catch()
 def setup_slurm(args):
-    proc_id = int(os.environ['SLURM_PROCID'])
+    args.proc_id = int(os.environ['SLURM_PROCID'])
     ntasks = int(os.environ['SLURM_NTASKS'])
     node_list = os.environ['SLURM_NODELIST']
     num_gpus = torch.cuda.device_count()
     addr = subprocess.getoutput(
         'scontrol show hostname {} | head -n1'.format(node_list))
-    local_rank = proc_id % num_gpus
+    local_rank = args.proc_id % num_gpus
     args.local_rank = local_rank
     os.environ['MASTER_PORT'] = args.port
     os.environ['MASTER_ADDR'] = addr
     os.environ['WORLD_SIZE'] = str(ntasks)
-    os.environ['RANK'] = str(proc_id)
+    os.environ['RANK'] = str(args.proc_id)
     os.environ['LOCAL_RANK'] = str(local_rank)
-    return proc_id
 
 
 @catch()
