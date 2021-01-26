@@ -109,6 +109,7 @@ def main(args):
             acc1, acc5, loss = train(train_loader, model, criterion, optimizer,
                                      scheduler, epoch, args, logger, writer)
         if args.validate:
+            val_writer = writer if not args.epoch > 1 else None
             acc1, acc5, loss = validate(val_loader, model, criterion, args, 
                                         logger, writer)
 
