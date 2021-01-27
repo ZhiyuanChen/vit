@@ -109,17 +109,17 @@ def main(args):
             acc1, acc5, loss = train(train_loader, model, criterion, optimizer,
                                      scheduler, epoch, args, logger, writer)
         if args.validate:
-            val_writer = writer if not args.epoch > 1 else None
-            acc1, acc5, loss = validate(val_loader, model, criterion, args, 
-                                        logger, writer)
+            val_writer = writer if not args.train else None
+            acc1, acc5, loss = validate(val_loader, model, criterion, args,
+                                        logger, val_writer)
 
-        # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
+        # This impliies args.tensorboard and proc_id == 0:
         if writer:
             writer.add_scalar('validate/loss', loss, epoch)
             writer.add_scalar('validate/acc1', acc1, epoch)
             writer.add_scalar('validate/acc5', acc5, epoch)
 
-        if int(os.environ['SLURM_PROCID']) == 0:
+        if args.proc_id == 0:
             is_best = acc1 > best_acc1
             best_acc1 = max(acc1, best_acc1)
             net = model.module if args.distributed else model
@@ -305,18 +305,18 @@ def validate(loader, model, criterion, args, logger=None, writer=None):
         if iteration % args.print_freq == 0:
             print('Test: [{0}/{1}]\t'
                   'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
-            # 'Speed {2:.3f} ({3:.3f})\t'
+                  # 'Speed {2:.3f} ({3:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                   'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                   'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                iteration,
-                len(loader),
-                args.world_size * args.batch_size / batch_time.val,
-                args.world_size * args.batch_size / batch_time.avg,
-                batch_time=batch_time,
-                loss=losses,
-                top1=top1,
-                top5=top5))
+                      iteration,
+                      len(loader),
+                      args.world_size * args.batch_size / batch_time.val,
+                      args.world_size * args.batch_size / batch_time.avg,
+                      batch_time=batch_time,
+                      loss=losses,
+                      top1=top1,
+                      top5=top5))
 
         images, targets = next(fetcher)
 
