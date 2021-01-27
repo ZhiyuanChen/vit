@@ -243,9 +243,9 @@ def pos_embed_scale(pos_embed, img_size, patch_size, mode='constant', order=1):
     pos_embed_length_model = np.square(img_size) // np.square(patch_size) + 1
     if pos_embed_length_ckpt == pos_embed_length_model:
         return pos_embed
-    print('The length of position embeding in checkpoint is: '
-          f'{pos_embed_length_ckpt}, which should be {pos_embed_length_model}'
-          f'in current model. Performing {mode} interpolation')
+    print('The length of position embeding in current model is '
+          f'{pos_embed_length_model}, where it is {pos_embed_length_ckpt} '
+          f'in the checkpoint. Performing {mode} interpolation.')
     device = pos_embed.device
     pos_embed = pos_embed.cpu()
     pos_embed_tok, pos_embed_grid = pos_embed[:, :1], pos_embed[0, 1:]
