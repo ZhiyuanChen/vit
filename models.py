@@ -109,7 +109,7 @@ class VisionTransformer(nn.Module):
     def __init__(self, img_size=384, patches=16, num_classes=1000,
                  hidden_size=1024, num_layers=12, num_heads=12, mlp_ratio=4,
                  dropout=0., attn_bias=True, attn_scaling=None, attn_dropout=0.,
-                 norm=nn.LayerNorm, pre_size=True, *args, **kwargs):
+                 norm=nn.LayerNorm, pre_logits=True, *args, **kwargs):
         super().__init__()
         self.num_classes = num_classes
         self.hidden_size = hidden_size
@@ -124,11 +124,9 @@ class VisionTransformer(nn.Module):
         self.encoder = Encoder(img_size, patches, hidden_size, num_layers,
             num_heads, mlp_ratio, dropout, attn_bias, attn_scaling,
             attn_dropout, norm)
-        if pre_size:
-            pre_size = pre_size if type(pre_size) is int else hidden_size
-        self.pre_logits = nn.Linear(hidden_size, pre_size) if pre_size else nn.Identity()
-        self.tanh = nn.Tanh() if pre_size else nn.Identity()
-        self.head = nn.Linear(pre_size or hidden_size, num_classes)
+        self.pre_logits = nn.Linear(hidden_size, hidden_size) if pre_logits else nn.Identity()
+        self.tanh = nn.Tanh() if pre_logits else nn.Identity()
+        self.head = nn.Linear(hidden_size, num_classes)
 
         self.apply(self._init)
 

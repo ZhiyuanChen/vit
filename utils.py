@@ -233,7 +233,7 @@ def load_checkpoint(model, args, optimizer=None, scheduler=None, best_acc1=0):
     pos_embed = state_dict['pos_embed']
     state_dict['pos_embed'] = pos_embed_scale(pos_embed, img_size=args.img_size, patch_size=16)
     model.load_state_dict(state_dict)
-    print(f'=> loaded checkpoint "{args.checkpoint}" (epoch {checkpoint["epoch"]}')
+    print(f'=> loaded checkpoint "{args.checkpoint}"')
     return best_acc1
 
 
