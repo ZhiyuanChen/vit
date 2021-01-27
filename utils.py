@@ -94,7 +94,7 @@ def setup_slurm(args):
 def setup_distributed(args):
     args.gpu = args.local_rank
     torch.cuda.set_device(args.gpu)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://')
+    torch.distributed.init_process_group(backend='nccl')
     args.world_size = torch.distributed.get_world_size()
     torch.set_printoptions(precision=10)
 
