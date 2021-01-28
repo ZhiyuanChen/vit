@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from functools import partial
 
+from torchvision.models.resnet import Bottleneck as ConvBlock, conv1x1
+
 
 class DropModule(nn.Module):
     def __init__(self, drop_prob=0., epislon=1e-7):
@@ -40,15 +42,15 @@ class MLPBlock(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, dim, num_heads=16, attn_bias=True, attn_scaling=None,
+    def __init__(self, hidden_size, num_heads=16, attn_bias=True, attn_scaling=None,
                  attn_dropout=0.):
         super().__init__()
         self.num_heads = num_heads
-        head_dim = dim // num_heads
+        head_dim = hidden_size // num_heads
         self.scaling = attn_scaling or head_dim ** -0.5
-        self.in_proj = nn.Linear(dim, dim * 3, bias=attn_bias)
+        self.in_proj = nn.Linear(hidden_size, hidden_size * 3, bias=attn_bias)
         self.dropout = nn.Dropout(attn_dropout)
-        self.out_proj = nn.Linear(dim, dim)
+        self.out_proj = nn.Linear(hidden_size, hidden_size)
 
     def forward(self, x):
         B, N, C = x.shape
@@ -66,19 +68,40 @@ class Encoder1DBlock(nn.Module):
                  attn_bias=True, attn_scaling=None, attn_dropout=0.,
                  norm=nn.LayerNorm, drop_prob=0.):
         super().__init__()
-        self.norm1 = norm(hidden_size)
+        self.hidden_size = hidden_size
+        self.head_dim = hidden_size // num_heads
+        self.norm1 = norm(self.hidden_size)
         self.attention = Attention(
-            hidden_size, num_heads=num_heads, attn_bias=attn_bias,
+            self.hidden_size, num_heads=num_heads, attn_bias=attn_bias,
             attn_scaling=attn_scaling, attn_dropout=attn_dropout)
-        self.norm2 = norm(hidden_size)
-        mlp_dim = int(hidden_size * mlp_ratio)
-        self.mlp = MLPBlock(in_channels=hidden_size, hidden_channels=mlp_dim, dropout=dropout)
+        self.norm2 = norm(self.hidden_size)
+        # mlp_dim = int(hidden_size * mlp_ratio)
+        # self.mlp = MLPBlock(in_channels=hidden_size, hidden_channels=mlp_dim, dropout=dropout)
+        # downsample = nn.Sequential(
+        #     conv1x1(self.hidden_size * 4, self.hidden_size),
+        #    norm(self.hidden_size),
+        # )
+        # self.mlp = ConvBlock(hidden_size, hidden_size, downsample=downsample)
+        self.mlp = ConvBlock(hidden_size, hidden_size // 4)
         self.drop_module = DropModule(drop_prob) if drop_prob > 0. else nn.Identity()
 
     def forward(self, x):
-        x = x + self.drop_module(self.attention(self.norm1(x)))
-        x = x + self.drop_module(self.mlp(self.norm2(x)))
-        return x
+        residual = x
+        x = self.norm1(x)
+        x = self.attention(x)
+        x = self.drop_module(x)
+        x = x + residual
+        y = self.norm2(x)
+        f, c = y[:, :-1, :], y[:, -1, :]
+        b, h, k = f.shape
+        m = int(torch.sqrt(torch.tensor(h, dtype=torch.float, device=x.device)).item())
+        f = f.reshape(b, m, m, k).permute(0, 3, 1, 2)
+        f = self.mlp(f)
+        f = f.permute(0, 2, 3, 1).reshape(b, h, k)
+        y = torch.cat((f, c.unsqueeze(1)), dim=1)
+        # y = self.mlp(y)
+        y = self.drop_module(y)
+        return x + y
 
 
 class Encoder(nn.Module):

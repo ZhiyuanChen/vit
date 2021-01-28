@@ -150,7 +150,7 @@ def main(args):
                                       logger, writer, mixup_fn)
         if args.validate:
             val_writer = writer if not args.train else None
-            acc1, acc5, loss = validate(val_loader, model, criterion, args,
+            acc1, acc5, loss = validate(val_loader, model, val_criterion, args, 
                                         logger, val_writer)
 
         # This impliies args.tensorboard and proc_id == 0:

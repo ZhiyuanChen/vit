@@ -60,6 +60,7 @@ modes = dict(
         weight_decay=0.3
     ),
     train=dict(
+        arch='b32',
         train=True,
         tune=False,
         validate=True,
@@ -68,11 +69,11 @@ modes = dict(
         val_data='/mnt/lustre/share_data/ImageNet-Pytorch/val',
         num_classes=1000,
         img_size=224,
-        batch_size=64,
+        batch_size=128,
         epochs=300,
         save_freq=10,
         optimizer='AdamW',
-        lr=1e-3,
+        lr=5e-4,
         lr_factor=512.0,
         strategy='linear',
         warmup_steps=5_000,
@@ -186,9 +187,9 @@ def parse():
                        help='number of classes')
     model.add_argument('-s', '--img_size', type=int, metavar='N',
                        help='image size for model')
-    model.add_argument('-do', '--dropout', type=float, metavar='M', default=0.1,
+    model.add_argument('-do', '--dropout', type=float, metavar='M', default=0.0,
                        help='drop out rate')
-    model.add_argument('-ado', '--attn_dropout', type=float, metavar='M', default=0.1,
+    model.add_argument('-ado', '--attn_dropout', type=float, metavar='M', default=0.0,
                        help='drop out rate for attention')
     model.add_argument('-dp', '--drop_prob', type=float, default=0.1,
                        help='Stochastic depth (default: 0.1)')
@@ -212,8 +213,8 @@ def parse():
                           help='final learning rate, scaled by total batch size / lr_factor')
     optimize.add_argument('-mo', '--momentum', type=float, metavar='M', default=0.9,
                           help='momentum')
-    optimize.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.03,
-                          help='weight decay (default: 0.03)')
+    optimize.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.05,
+                          help='weight decay (default: 0.05)')
     optimize.add_argument('-ls', '--strategy', type=str, default='linear',
                           help='learning rate scaling strategy')
     optimize.add_argument('-ws', '--warmup_steps', type=int, metavar='N', default=5000,
