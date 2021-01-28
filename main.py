@@ -227,7 +227,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
                   f'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
                   # f'Speed {args.world_size*args.batch_size/batch_time.val:.2f} '
                   # f'({args.world_size*args.batch_size/batch_time.avg:.2f})\t'
-                  f'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  f'Loss {losses.val:.4f} ({losses.avg:.4f})\t'
                   f'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                   f'Acc@5 {top5.val:.3f} ({top5.avg:.3f})')
 
