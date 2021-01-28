@@ -55,7 +55,7 @@ modes = dict(
         lr_factor=4096.0,
         strategy='linear',
         warmup_steps=5_000,
-        weight_decay=0.3
+        weight_decay=0.03
     ),
     train=dict(
         train=True,
@@ -70,7 +70,7 @@ modes = dict(
         epochs=300,
         save_freq=10,
         optimizer='AdamW',
-        lr=1e-3,
+        lr=3e-3,
         lr_factor=4096.0,
         strategy='linear',
         warmup_steps=5_000,
