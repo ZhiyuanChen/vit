@@ -22,4 +22,3 @@ class DropModule(nn.Module):
         random_tensor.floor_()
         output = x.div(keep_prob) * random_tensor
         return output
-

@@ -27,7 +27,7 @@ def catch(error=Exception, exclude=None):
             except error as e:
                 if exclude is not None and isinstance(e, exclude):
                     raise e
-                print(f'{e} encoutered when calling {func} with args {args} and kwargs {kwargs}')
+                print(f'{e.__class__.__name__} encoutered when calling {func} with args {args} and kwargs {kwargs}')
         return wrapper
     return decorator
 
@@ -38,10 +38,10 @@ def init(args):
            f'-lr{args.lr}-m{args.momentum}-wd{args.weight_decay}' \
            f'-{args.strategy}-ws{args.warmup_steps}-as{args.accum_steps}' \
            f'-{args.opt_level}-{args.experiment_id}'
-    proc_id, args.gpu, args.world_size = 0, 0, 1
+    args.proc_id, args.gpu, args.world_size = 0, 0, 1
 
     if args.slurm:
-        proc_id = setup_slurm(args)
+        setup_slurm(args)
 
     if 'WORLD_SIZE' in os.environ:
         args.distributed = int(os.environ['WORLD_SIZE']) >= 1
@@ -59,7 +59,7 @@ def init(args):
     best_acc1, experiment, logger, writer, save_dir = 0, None, None, None, None
     experiment = os.path.join(args.experiment_dir, name.strip('/'))
     save_dir = os.path.join(experiment, args.save_dir)
-    if proc_id == 0:
+    if args.proc_id == 0:
         os.makedirs(experiment, exist_ok=True)
         if args.tensorboard:
             from torch.utils.tensorboard import SummaryWriter
@@ -69,33 +69,32 @@ def init(args):
         if args.train:
             os.makedirs(save_dir, exist_ok=True)
 
-    setup_print(proc_id)
+    setup_print(args.proc_id)
     return best_acc1, experiment, logger, writer, save_dir
 
 
 @catch()
 def setup_slurm(args):
-    proc_id = int(os.environ['SLURM_PROCID'])
+    args.proc_id = int(os.environ['SLURM_PROCID'])
     ntasks = int(os.environ['SLURM_NTASKS'])
     node_list = os.environ['SLURM_NODELIST']
     num_gpus = torch.cuda.device_count()
     addr = subprocess.getoutput(
         'scontrol show hostname {} | head -n1'.format(node_list))
-    local_rank = proc_id % num_gpus
+    local_rank = args.proc_id % num_gpus
     args.local_rank = local_rank
     os.environ['MASTER_PORT'] = args.port
     os.environ['MASTER_ADDR'] = addr
     os.environ['WORLD_SIZE'] = str(ntasks)
-    os.environ['RANK'] = str(proc_id)
+    os.environ['RANK'] = str(args.proc_id)
     os.environ['LOCAL_RANK'] = str(local_rank)
-    return proc_id
 
 
 @catch()
 def setup_distributed(args):
     args.gpu = args.local_rank
     torch.cuda.set_device(args.gpu)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://')
+    torch.distributed.init_process_group(backend='nccl')
     args.world_size = torch.distributed.get_world_size()
     torch.set_printoptions(precision=10)
 
@@ -206,7 +205,7 @@ def save_checkpoint(state, is_best, save_dir, save_name='checkpoint.pth', best_n
 
 
 @catch()
-def load_checkpoint(model, optimizer, scheduler, args):
+def load_checkpoint(model, args, optimizer=None, scheduler=None, best_acc1=0):
     if not os.path.isfile(args.checkpoint):
         raise FileNotFoundError('checkpoint ')
     print(f'=> loading checkpoint "{args.checkpoint}"')
@@ -214,10 +213,14 @@ def load_checkpoint(model, optimizer, scheduler, args):
     state_dict = checkpoint
     if 'state_dict' in checkpoint:
         state_dict = checkpoint['state_dict']
-        args.start_epoch = checkpoint['epoch']
-        best_acc1 = checkpoint['best_acc1']
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        scheduler.load_state_dict(checkpoint['scheduler'])
+        if 'epoch' in checkpoint.keys():
+            args.start_epoch = checkpoint['epoch']
+        if 'best_acc1' in checkpoint.keys():
+            best_acc1 = checkpoint['best_acc1']
+        if optimizer is not None and 'optimizer' in checkpoint.keys():
+            optimizer.load_state_dict(checkpoint['optimizer'])
+        if scheduler is not None and 'scheduler' in checkpoint.keys():
+            scheduler.load_state_dict(checkpoint['scheduler'])
     if args.tune and args.start_epoch == 0:
         print(f'=> setting head to zeros and remove pre_logits for tuning')
         hidden_width = state_dict['head.weight'].shape[1]
@@ -230,7 +233,8 @@ def load_checkpoint(model, optimizer, scheduler, args):
     pos_embed = state_dict['pos_embed']
     state_dict['pos_embed'] = pos_embed_scale(pos_embed, img_size=args.img_size, patch_size=16)
     model.load_state_dict(state_dict)
-    print(f'=> loaded checkpoint "{args.checkpoint}" (epoch {checkpoint["epoch"]}')
+    print(f'=> loaded checkpoint "{args.checkpoint}"')
+    return best_acc1
 
 
 @catch()
@@ -239,9 +243,9 @@ def pos_embed_scale(pos_embed, img_size, patch_size, mode='constant', order=1):
     pos_embed_length_model = np.square(img_size) // np.square(patch_size) + 1
     if pos_embed_length_ckpt == pos_embed_length_model:
         return pos_embed
-    print('The length of position embeding in checkpoint is: '
-          f'{pos_embed_length_ckpt}, which should be {pos_embed_length_model}'
-          f'in current model. Performing {mode} interpolation')
+    print('The length of position embeding in current model is '
+          f'{pos_embed_length_model}, where it is {pos_embed_length_ckpt} '
+          f'in the checkpoint. Performing {mode} interpolation.')
     device = pos_embed.device
     pos_embed = pos_embed.cpu()
     pos_embed_tok, pos_embed_grid = pos_embed[:, :1], pos_embed[0, 1:]
