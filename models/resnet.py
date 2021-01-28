@@ -55,10 +55,10 @@ class BasicBlock(nn.Module):
             raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
         # Both self.conv1 and self.downsample layers downsample the input when stride != 1
         self.conv1 = conv3x3(inplanes, planes, stride)
-        self.norm1 = norm(planes)
+        self.bn1 = norm(planes)
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(planes, planes)
-        self.norm2 = norm(planes)
+        self.bn2 = norm(planes)
         self.downsample = downsample
         self.stride = stride
 
@@ -66,11 +66,11 @@ class BasicBlock(nn.Module):
         identity = x
 
         out = self.conv1(x)
-        out = self.norm1(out)
+        out = self.bn1(out)
         out = self.relu(out)
 
         out = self.conv2(out)
-        out = self.norm2(out)
+        out = self.bn2(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
@@ -105,11 +105,11 @@ class Bottleneck(nn.Module):
         width = int(planes * (base_width / 64.)) * groups
         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
         self.conv1 = conv1x1(inplanes, width)
-        self.norm1 = norm(width)
+        self.bn1 = norm(width)
         self.conv2 = conv3x3(width, width, stride, groups, dilation)
-        self.norm2 = norm(width)
+        self.bn2 = norm(width)
         self.conv3 = conv1x1(width, planes * self.expansion)
-        self.norm3 = norm(planes * self.expansion)
+        self.bn3 = norm(planes * self.expansion)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -118,15 +118,15 @@ class Bottleneck(nn.Module):
         identity = x
 
         out = self.conv1(x)
-        out = self.norm1(out)
+        out = self.bn1(out)
         out = self.relu(out)
 
         out = self.conv2(out)
-        out = self.norm2(out)
+        out = self.bn2(out)
         out = self.relu(out)
 
         out = self.conv3(out)
-        out = self.norm3(out)
+        out = self.bn3(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
@@ -166,7 +166,7 @@ class ResNet(nn.Module):
         self.base_width = width_per_group
         self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
                                bias=False)
-        self.norm1 = norm(self.inplanes)
+        self.bn1 = norm(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
@@ -192,9 +192,9 @@ class ResNet(nn.Module):
         if zero_init_residual:
             for m in self.modules():
                 if isinstance(m, Bottleneck):
-                    nn.init.constant_(m.norm3.weight, 0)  # type: ignore[arg-type]
+                    nn.init.constant_(m.bn3.weight, 0)  # type: ignore[arg-type]
                 elif isinstance(m, BasicBlock):
-                    nn.init.constant_(m.norm2.weight, 0)  # type: ignore[arg-type]
+                    nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type]
 
     def _make_layer(self, block: Type[Union[BasicBlock, Bottleneck]], planes: int, blocks: int,
                     stride: int = 1, dilate: bool = False) -> nn.Sequential:
@@ -224,7 +224,7 @@ class ResNet(nn.Module):
     def _forward_impl(self, x: Tensor) -> Tensor:
         # See note [TorchScript super()]
         x = self.conv1(x)
-        x = self.norm1(x)
+        x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
 
