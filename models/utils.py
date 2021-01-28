@@ -9,12 +9,12 @@ except ImportError:
 
 
 class DropModule(nn.Module):
-    def __init__(self, drop_prob=0., epislon=1e-7):
+    def __init__(self, drop_prob=0., epsilon=1e-7):
         self.drop_prob = drop_prob
-        self.epislon = epislon
+        self.epsilon = epsilon
 
     def forward(self, x):
-        if not self.training or self.drop_prob < self.epislon:
+        if not self.training or self.drop_prob < self.epsilon:
             return x
         keep_prob = 1 - self.drop_prob
         shape = (x.shape[0],) + (1,) * (x.ndim - 1)
