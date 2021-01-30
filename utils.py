@@ -215,8 +215,8 @@ def load_checkpoint(model, args, optimizer=None, scheduler=None, best_acc1=0):
         state_dict = checkpoint['state_dict']
         if 'epoch' in checkpoint.keys():
             args.start_epoch = checkpoint['epoch']
-        if 'best_acc1' in checkpoint.keys():
-            best_acc1 = checkpoint['best_acc1']
+        if 'acc1' in checkpoint.keys():
+            best_acc1 = max(best_acc1, checkpoint['acc1'])
         if optimizer is not None and 'optimizer' in checkpoint.keys():
             optimizer.load_state_dict(checkpoint['optimizer'])
         if scheduler is not None and 'scheduler' in checkpoint.keys():
