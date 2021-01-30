@@ -69,7 +69,7 @@ class Bottleneck(nn.Module):
         self.downsample = nn.Sequential()
         if stride != 1 or in_planes != self.expansion * planes:
             self.downsample = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride),
+                nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(self.expansion * planes)
             )
 
