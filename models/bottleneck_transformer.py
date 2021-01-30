@@ -19,7 +19,7 @@ class Attention(nn.Module):
 
     def forward(self, x):
         b, c, h, w = x.shape
-        q, k, v = self.to_qkv(x).chunk(3, dim=1).view(b, c, -1)
+        q, k, v = self.in_proj(x).chunk(3, dim=1).view(b, c, -1)
 
         content_content = torch.bmm(q.permute(0, 2, 1), k)
         content_position = (self.rel_h + self.rel_w).view(1, c, -1).permute(0, 2, 1)
