@@ -85,10 +85,10 @@ class Bottleneck(nn.Module):
 # reference
 # https://github.com/kuangliu/pytorch-cifar/blob/master/models/resnet.py
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=1000, resolution=(224, 224)):
+    def __init__(self, block, num_blocks, num_classes=1000, img_size=224, **kwargs):
         super(ResNet, self).__init__()
         self.in_planes = 64
-        self.resolution = list(resolution)
+        self.resolution = list([img_size, img_size])
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         # self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
@@ -98,7 +98,7 @@ class ResNet(nn.Module):
             self.resolution[1] /= 2
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)  # for ImageNet
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         if self.maxpool.stride == 2:
             self.resolution[0] /= 2
             self.resolution[1] /= 2
@@ -126,19 +126,21 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        out = self.relu(self.bn1(self.conv1(x)))
-        out = self.maxpool(out)  # for ImageNet
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
 
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.layer4(out)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
 
-        out = self.avgpool(out)
-        out = torch.flatten(out, 1)
-        out = self.fc(out)
-        return out
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        return x
 
 
-def ResNet50(num_classes=1000, resolution=(256, 256)):
-    return ResNet(Bottleneck, [3, 4, 6, 3], num_classes=num_classes, resolution=resolution)
+def b50(num_classes=1000, **kwargs):
+    return ResNet(Bottleneck, [3, 4, 6, 3], num_classes=num_classes, **kwargs)
