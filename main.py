@@ -36,7 +36,7 @@ def main(args):
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
     print("creating model '{}'".format(args.arch))
-    model = getattr(models, args.arch)(pre_size=args.tune, **vars(args))
+    model = getattr(models, args.arch)(**vars(args))
 
     if args.sync_bn:
         print('Convery model with Sync BatchNormal')
