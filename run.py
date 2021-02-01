@@ -43,21 +43,25 @@ modes = dict(
         tune=False,
         validate=True,
         pre_logits=True,
+        arch='b16',
         train_data='/mnt/lustre/share_data/imagenet22k',
         val_data='/mnt/lustre/share_data/ImageNet-Pytorch/val',
+        pin_memory=True,
+        drop_last=True,
         num_classes=21843,
         img_size=224,
-        batch_size=64,
+        batch_size=256,
         epochs=90,
         save_freq=10,
         optimizer='AdamW',
         lr=1e-3,
-        lr_factor=4096.0,
+        lr_factor=512.0,
         strategy='linear',
         warmup_steps=5_000,
         weight_decay=0.03
     ),
     train=dict(
+        arch='b16',
         train=True,
         tune=False,
         validate=True,
@@ -66,15 +70,15 @@ modes = dict(
         val_data='/mnt/lustre/share_data/ImageNet-Pytorch/val',
         num_classes=1000,
         img_size=224,
-        batch_size=64,
+        batch_size=256,
         epochs=300,
         save_freq=10,
         optimizer='AdamW',
-        lr=3e-3,
-        lr_factor=4096.0,
-        strategy='linear',
+        lr=5e-4,
+        weight_decay=0.05,
+        lr_factor=512.0,
+        strategy='cosine',
         warmup_steps=5_000,
-        weight_decay=0.3
     ),
     tune=dict(
         train=True,
@@ -83,6 +87,8 @@ modes = dict(
         pre_logits=False,
         train_data='/mnt/lustre/share_data/ImageNet-Pytorch/train',
         val_data='/mnt/lustre/share_data/ImageNet-Pytorch/val',
+        pin_memory=True,
+        drop_last=True,
         num_classes=1000,
         img_size=384,
         batch_size=16,
@@ -100,6 +106,7 @@ modes = dict(
         validate=True,
         pre_logits=True,
         val_data='/mnt/lustre/share_data/ImageNet-Pytorch/val',
+        pin_memory=True,
         num_classes=1000,
         img_size=384,
         batch_size=16,
@@ -157,6 +164,14 @@ def parse():
                       help='path to train dataset')
     data.add_argument('-vd', '--val_data', metavar='DIR', default=None,
                       help='path to validation dataset')
+    data.add_argument('-b', '--batch_size', type=int, metavar='N', default=64,
+                      help='mini-batch size per process (default: 64)')
+    data.add_argument('-dl', '--drop_last', action='store_true',
+                      help='drop last element in data loader')
+    data.add_argument('-pm', '--pin_memory', action='store_true')
+    data.add_argument('-pw', '--persistent_workers', action='store_true')
+    data.add_argument('-as', '--accum_steps', type=int, metavar='N', default=1,
+                      help='gradient accumulation steps')
 
     model = parser.add_argument_group()
     model.add_argument('-a', '--arch', default='l16', choices=model_names, metavar='ARCH',
@@ -173,9 +188,9 @@ def parse():
                        help='number of classes')
     model.add_argument('-s', '--img_size', type=int, metavar='N',
                        help='image size for model')
-    model.add_argument('-do', '--dropout', type=float, metavar='M', default=0.1,
+    model.add_argument('-do', '--dropout', type=float, metavar='M', default=0.0,
                        help='drop out rate')
-    model.add_argument('-ado', '--attn_dropout', type=float, metavar='M', default=0.1,
+    model.add_argument('-ado', '--attn_dropout', type=float, metavar='M', default=0.0,
                        help='drop out rate for attention')
     model.add_argument('-dp', '--drop_prob', type=float, default=0.1,
                        help='Stochastic depth (default: 0.1)')
@@ -183,10 +198,6 @@ def parse():
                         help='enabling apex sync BN.')
 
     train = parser.add_argument_group()
-    train.add_argument('-b', '--batch_size', type=int, metavar='N', default=64,
-                       help='mini-batch size per process (default: 64)')
-    train.add_argument('-as', '--accum_steps', type=int, metavar='N', default=1,
-                       help='gradient accumulation steps')
     train.add_argument('-e', '--epochs', type=int, metavar='N',
                        help='number of total epochs to run')
     train.add_argument('-se', '--start_epoch', type=int, metavar='N', default=0,
@@ -203,8 +214,8 @@ def parse():
                           help='final learning rate, scaled by total batch size / lr_factor')
     optimize.add_argument('-mo', '--momentum', type=float, metavar='M', default=0.9,
                           help='momentum')
-    optimize.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.03,
-                          help='weight decay (default: 0.03)')
+    optimize.add_argument('-wd', '--weight_decay', type=float, metavar='W', default=0.05,
+                          help='weight decay (default: 0.05)')
     optimize.add_argument('-ls', '--strategy', type=str, default='linear',
                           help='learning rate scaling strategy')
     optimize.add_argument('-ws', '--warmup_steps', type=int, metavar='N', default=5000,
@@ -212,6 +223,42 @@ def parse():
     optimize.add_argument('-gc', '--gradient_clip', type=float, default=1.0,
                           help='gradient clip')
     optimize.add_argument('--deterministic', action='store_true')
+
+    aug = parser.add_argument_group()
+    aug.add_argument('-cj', '--color_jitter', type=float, default=0.4, metavar='PCT',
+                     help='Color jitter factor (default: 0.4)')
+    aug.add_argument('-aa', '--auto_augment', type=str, default='rand-m9-mstd0.5-inc1', metavar='NAME',
+                     help='Use AutoAugment policy. "v0" or "original". " + " (default: rand-m9-mstd0.5-inc1)'),
+    aug.add_argument('-sm', '--smoothing', type=float, default=0.1,
+                     help='Label smoothing (default: 0.1)')
+    aug.add_argument('-ti', '--train_interpolation', type=str, default='bicubic',
+                     help='Training interpolation (random, bilinear, bicubic default: "bicubic")')
+    aug.add_argument('-ra', '--repeated_aug', action='store_true',
+                     help='use repeated augmentation')
+
+    erase = parser.add_argument_group()
+    erase.add_argument('-rep', '--random_erase_prob', type=float, default=0.25, metavar='PCT',
+                       help='Random erase prob (default: 0.25)')
+    erase.add_argument('-rem', '--random_erase_mode', type=str, default='pixel',
+                       help='Random erase mode (default: "pixel")')
+    erase.add_argument('-rec', '--random_erase_count', type=int, default=1,
+                       help='Random erase count (default: 1)')
+    erase.add_argument('-res', '--random_erase_split', action='store_true', default=False,
+                       help='Do not random erase first (clean) augmentation split')
+
+    mixup = parser.add_argument_group()
+    mixup.add_argument('-mu', '--mixup', type=float, default=0.8,
+                       help='mixup alpha, mixup enabled if > 0. (default: 0.8)')
+    mixup.add_argument('-mum', '--mixup_mode', type=str, default='batch',
+                       help='How to apply mixup/cutmix params. Per "batch", "pair", or "elem"')
+    mixup.add_argument('-mup', '--mixup_prob', type=float, default=1.0,
+                       help='Probability of performing mixup or cutmix when either/both is enabled')
+    mixup.add_argument('-cm', '--cutmix', type=float, default=1.0,
+                       help='cutmix alpha, cutmix enabled if > 0. (default: 1.0)')
+    mixup.add_argument('--cutmix_minmax', type=float, nargs='+', default=None,
+                       help='cutmix min/max ratio, overrides alpha and enables cutmix if set (default: None)')
+    mixup.add_argument('-msp', '--mixup_switch_prob', type=float, default=0.5,
+                       help='Probability of switching to cutmix when both mixup and cutmix enabled')
 
     apex = parser.add_argument_group()
     apex.add_argument('--apex', action='store_true')
@@ -230,7 +277,7 @@ def parse():
     slurm.add_argument('-p', '--partition', type=str, default='pat_prototype')
     slurm.add_argument('-x', '--exclude', nargs='+', default=None)
     slurm.add_argument('-g', '--gpus', type=int, default=32)
-    slurm.add_argument('-w', '--workers', type=int, metavar='N', default=64,
+    slurm.add_argument('-w', '--num_workers', type=int, metavar='N', default=64,
                        help='number of data loading workers (default: 64)')
 
     selects, unknown = selector.parse_known_args(sys.argv[:3])

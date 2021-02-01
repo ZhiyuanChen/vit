@@ -12,6 +12,8 @@ import models
 import data
 from utils import *
 from run import parse
+from timm.data import create_transform, Mixup
+from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 
 try:
     import apex
@@ -32,6 +34,14 @@ def main(args):
     best_acc1, experiment, logger, writer, save_dir = init(args)
 
     print('\nArguments:' + '\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
+
+    mixup_fn = None
+    mixup_active = args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None
+    if mixup_active:
+        mixup_fn = Mixup(
+            mixup_alpha=args.mixup, cutmix_alpha=args.cutmix, cutmix_minmax=args.cutmix_minmax,
+            prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
+            label_smoothing=args.smoothing, num_classes=args.num_classes)
 
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
@@ -67,13 +77,30 @@ def main(args):
                 model.parameters(), args.lr,
                 weight_decay=args.weight_decay)
         print("loading training set from '{}'".format(args.train_data))
-        train_transform = transforms.Compose([
-            transforms.RandomResizedCrop(args.img_size),
-            transforms.RandomHorizontalFlip(),
-        ])
+        # color_jitter = (float(args.color_jitter),) * 3
+        # train_transform = transforms.Compose([
+        #     transforms.RandomResizedCrop(args.img_size),
+        #     transforms.RandomHorizontalFlip(),
+        #     transforms.ColorJitter(*color_jitter),
+        #     getattr(autoaugment, 'ImageNet')
+        # ])
+        train_transform = create_transform(
+            input_size=args.img_size,
+            is_training=True,
+            use_prefetcher=True,
+            color_jitter=args.color_jitter,
+            auto_augment=args.auto_augment,
+            interpolation=args.train_interpolation,
+            re_prob=args.random_erase_prob,
+            re_mode=args.random_erase_mode,
+            re_count=args.random_erase_count,
+        )
+        train_transform.transforms = train_transform.transforms[:-1]
+
         train_dataset, train_sampler, train_loader = \
-            data.load_data(args.train_data, train_transform, args.batch_size,
-                           args.workers, memory_format)
+            data.load_data(args.train_data, train_transform, memory_format,
+                           shuffle=False, **vars(args))
+
         print("length of traning dataset '{}'".format(len(train_loader)))
         scheduler = LRScheduler(optimizer,
                                 steps=args.epochs * len(train_loader),
@@ -83,13 +110,19 @@ def main(args):
                                 accum_steps=args.accum_steps)
     if args.validate:
         print("loading validation set from '{}'".format(args.val_data))
+        # val_transform = create_transform(
+        #    input_size=args.img_size,
+        #    is_training=False,
+        #    use_prefetcher=True,
+        #    interpolation=args.train_interpolation,
+        # )
         val_transform = transforms.Compose([
             transforms.Resize(args.img_size),
             transforms.CenterCrop(args.img_size),
         ])
         val_dataset, val_sampler, val_loader = \
-            data.load_data(args.val_data, val_transform, args.batch_size,
-                           args.workers, memory_format, shuffle=False)
+            data.load_data(args.val_data, val_transform, memory_format,
+                           shuffle=False, **vars(args))
         print("length of validation dataset '{}'".format(len(val_loader)))
 
     if args.checkpoint:
@@ -106,18 +139,25 @@ def main(args):
     if args.distributed:
         model = DDP(model)
 
-    criterion = nn.CrossEntropyLoss().cuda()
+    train_criterion = nn.CrossEntropyLoss()
+    val_criterion = nn.CrossEntropyLoss()
+    if args.mixup > 0.:
+        train_criterion = SoftTargetCrossEntropy()
+    elif args.smoothing:
+        train_criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
+    train_criterion.cuda()
 
     for epoch in range(args.start_epoch, args.epochs):
 
         if args.train:
             if args.distributed:
                 train_sampler.set_epoch(epoch)
-            acc1, acc5, loss = train(train_loader, model, criterion, optimizer,
-                                     scheduler, epoch, args, logger, writer)
+            acc1, acc5, loss = train(train_loader, model, train_criterion,
+                                      optimizer, scheduler, epoch, args,
+                                      logger, writer, mixup_fn)
         if args.validate:
             val_writer = writer if not args.train else None
-            acc1, acc5, loss = validate(val_loader, model, criterion, args,
+            acc1, acc5, loss = validate(val_loader, model, val_criterion, args, 
                                         logger, val_writer)
 
         # This impliies args.tensorboard and proc_id == 0:
@@ -144,7 +184,7 @@ def main(args):
                 save_checkpoint(state_dict, is_best, save_dir, f'epoch-{epoch}.pth')
 
 
-def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=None, writer=None):
+def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=None, writer=None, mixup_fn=None):
     print('training {}'.format(epoch))
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -156,7 +196,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
 
     iteration = 0
     fetcher = data.DataFetcher(loader)
-    images, targets = next(fetcher)
+    images, labels = next(fetcher)
 
     while images is not None:
         iteration += 1
@@ -166,6 +206,10 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
         if args.profile >= 0:
             torch.cuda.nvtx.range_push(
                 "Body of iteration {}".format(iteration))
+
+        targets = labels
+        if mixup_fn is not None:
+            images, targets = mixup_fn(images, labels)
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("forward")
         output = model(images)
@@ -200,7 +244,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
 
         if iteration % args.print_freq == 0:
             # measure accuracy
-            acc1, acc5 = accuracy(output.data, targets, topk=(1, 5))
+            acc1, acc5 = accuracy(output.data, labels, topk=(1, 5))
             reduced_loss = loss.data
 
             # average loss and accuracy across processes for logging
@@ -237,7 +281,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
                   f'Acc@5 {top5.val:.3f} ({top5.avg:.3f})')
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("next(fetcher)")
-        images, targets = next(fetcher)
+        images, labels = next(fetcher)
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
 
         if args.profile >= 0: torch.cuda.nvtx.range_pop()
