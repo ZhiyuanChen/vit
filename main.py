@@ -37,12 +37,17 @@ def main(args):
 
     print("creating model '{}'".format(args.arch))
     model = getattr(models, args.arch)(**vars(args))
+    print(model)
 
     if args.sync_bn:
         print('Convery model with Sync BatchNormal')
         model = sync_bn(model)
 
     model = model.cuda().to(memory_format=memory_format)
+    state_dict = torch.load('/mnt/lustre/chenzhiyuan1/vit/debug/resnet50-19c8e357.pth')
+    del state_dict['fc.weight']
+    del state_dict['fc.bias']
+    model.load_state_dict(state_dict, strict=False)
 
     scale_factor = float(
         args.batch_size * args.world_size) * args.accum_steps / args.lr_factor
@@ -88,7 +93,7 @@ def main(args):
         print("length of validation dataset '{}'".format(len(val_loader)))
 
     if args.checkpoint:
-        best_acc1 = load_checkpoint(model, args, optimizer, scheduler, best_acc1)
+        load_checkpoint(model, args, optimizer, scheduler, best_acc1)
 
     if APEX_AVAILABLE:
         model, optimizer = amp.initialize(
