@@ -54,10 +54,10 @@ modes = dict(
         save_freq=10,
         optimizer='AdamW',
         lr=1e-3,
-        lr_factor=4096.0,
+        lr_factor=512.0,
         strategy='linear',
         warmup_steps=5_000,
-        weight_decay=0.3
+        weight_decay=0.03
     ),
     train=dict(
         arch='b32',
@@ -75,7 +75,7 @@ modes = dict(
         optimizer='AdamW',
         lr=5e-4,
         lr_factor=512.0,
-        strategy='linear',
+        strategy='cosine',
         warmup_steps=5_000,
         weight_decay=0.3
     ),

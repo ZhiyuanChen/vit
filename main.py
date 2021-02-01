@@ -19,10 +19,12 @@ try:
     import apex
     from apex.parallel import DistributedDataParallel as DDP
     from apex import amp, optimizers
+
     sync_bn = apex.parallel.convert_syncbn_model
     APEX_AVAILABLE = True
 except ImportError:
     from torch.nn.parallel import DistributedDataParallel as DDP
+
     sync_bn = nn.SyncBatchNorm.convert_sync_batchnorm
     APEX_AVAILABLE = False
 
@@ -44,7 +46,7 @@ def main(args):
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
     print("creating model '{}'".format(args.arch))
-    model = getattr(models, args.arch)(pre_size=args.tune, **vars(args))
+    model = getattr(models, args.arch)(**vars(args))
 
     if args.sync_bn:
         print('Convery model with Sync BatchNormal')
@@ -63,13 +65,13 @@ def main(args):
     if args.train:
         if args.optimizer in ('SGD', 'RMSprop'):
             optimizer = getattr(torch.optim, args.optimizer)(
-                            model.parameters(), args.lr, momentum=args.momentum,
-                            weight_decay=args.weight_decay)
+                model.parameters(), args.lr, momentum=args.momentum,
+                weight_decay=args.weight_decay)
         else:
             optimizer = getattr(torch.optim, args.optimizer)(
-                            model.parameters(), args.lr,
-                            weight_decay=args.weight_decay)
-            print("loading training set from '{}'".format(args.train_data))
+                model.parameters(), args.lr,
+                weight_decay=args.weight_decay)
+        print("loading training set from '{}'".format(args.train_data))
         # color_jitter = (float(args.color_jitter),) * 3
         # train_transform = transforms.Compose([
         #     transforms.RandomResizedCrop(args.img_size),
@@ -119,7 +121,8 @@ def main(args):
         print("length of validation dataset '{}'".format(len(val_loader)))
 
     if args.checkpoint:
-        best_acc1 = load_checkpoint(model, args, optimizer, scheduler, best_acc1)
+        load_checkpoint(model, args, optimizer, scheduler, best_acc1)
+    best_acc1 = 0
 
     if APEX_AVAILABLE:
         model, optimizer = amp.initialize(
@@ -163,7 +166,7 @@ def main(args):
             is_best = acc1 > best_acc1
             best_acc1 = max(acc1, best_acc1)
             net = model.module if args.distributed else model
-            if epoch % args.save_freq == 0:
+            if (epoch + 1) % args.save_freq == 0:
                 state_dict = {
                     'epoch': epoch,
                     'arch': args.arch,
@@ -256,7 +259,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
             batch_time.update((time.time() - end) / args.print_freq)
             end = time.time()
 
-            # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
+            # This implies args.tensorboard and args.rank == 0:
             if writer:
                 total_iter = iteration + len(loader) * epoch
                 writer.add_scalar('train/loss', losses.val, total_iter)
@@ -264,23 +267,14 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
                 writer.add_scalar('train/acc5', top5.val, total_iter)
                 writer.add_scalar('train/lr', lr, total_iter)
 
-            print('Epoch: [{0}][{1}/{2}]\t'
-                  'LR {lr:.6f}\t'
-                  'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
-            # 'Speed {3:.3f} ({4:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                  'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                epoch,
-                iteration,
-                len(loader),
-                # args.world_size*args.batch_size/batch_time.val,
-                # args.world_size*args.batch_size/batch_time.avg,
-                lr=lr,
-                batch_time=batch_time,
-                loss=losses,
-                top1=top1,
-                top5=top5))
+            print(f'Epoch: [{epoch}][{iteration}/{len(loader)}]\t'
+                  f'LR {lr:.6f}\t'
+                  f'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
+                  # f'Speed {args.world_size*args.batch_size/batch_time.val:.2f} '
+                  # f'({args.world_size*args.batch_size/batch_time.avg:.2f})\t'
+                  f'Loss {losses.val:.4f} ({losses.avg:.4f})\t'
+                  f'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                  f'Acc@5 {top5.val:.3f} ({top5.avg:.3f})')
 
         if args.profile >= 0: torch.cuda.nvtx.range_push("next(fetcher)")
         images, labels = next(fetcher)
@@ -339,7 +333,7 @@ def validate(loader, model, criterion, args, logger=None, writer=None):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        # This impliies args.tensorboard and int(os.environ['SLURM_PROCID']) == 0:
+        # This impliies args.tensorboard and args.rank == 0:
         if writer:
             writer.add_scalar('validate/loss', losses.val, iteration)
             writer.add_scalar('validate/acc1', top1.val, iteration)
@@ -347,20 +341,13 @@ def validate(loader, model, criterion, args, logger=None, writer=None):
 
         # TODO:  Change timings to mirror train().
         if iteration % args.print_freq == 0:
-            print('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
-                  # 'Speed {2:.3f} ({3:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                  'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                      iteration,
-                      len(loader),
-                      args.world_size * args.batch_size / batch_time.val,
-                      args.world_size * args.batch_size / batch_time.avg,
-                      batch_time=batch_time,
-                      loss=losses,
-                      top1=top1,
-                      top5=top5))
+            print(f'Test: [{iteration}/{len(loader)}]\t'
+                  f'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
+                  # f'Speed {args.world_size * args.batch_size / batch_time.val:.3f} '
+                  # f'({args.world_size * args.batch_size / batch_time.avg:.3f})\t'
+                  f'Loss {losses.val:.4f} ({losses.avg:.4f})\t'
+                  f'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                  f'Acc@5 {top5.val:.3f} ({top5.avg:.3f})')
 
         images, targets = next(fetcher)
 

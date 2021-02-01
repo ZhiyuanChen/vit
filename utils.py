@@ -213,15 +213,16 @@ def load_checkpoint(model, args, optimizer=None, scheduler=None, best_acc1=0):
     state_dict = checkpoint
     if 'state_dict' in checkpoint:
         state_dict = checkpoint['state_dict']
-        if 'epoch' in checkpoint.keys():
-            args.start_epoch = checkpoint['epoch']
-        if 'best_acc1' in checkpoint.keys():
-            best_acc1 = checkpoint['best_acc1']
-        if optimizer is not None and 'optimizer' in checkpoint.keys():
-            optimizer.load_state_dict(checkpoint['optimizer'])
-        if scheduler is not None and 'scheduler' in checkpoint.keys():
-            scheduler.load_state_dict(checkpoint['scheduler'])
-    if args.tune and args.start_epoch == 0:
+        if not args.pretrained:
+            if 'epoch' in checkpoint.keys():
+                args.start_epoch = checkpoint['epoch']
+            if 'acc1' in checkpoint.keys():
+                best_acc1 = max(best_acc1, checkpoint['acc1'])
+            if optimizer is not None and 'optimizer' in checkpoint.keys():
+                optimizer.load_state_dict(checkpoint['optimizer'])
+            if scheduler is not None and 'scheduler' in checkpoint.keys():
+                scheduler.load_state_dict(checkpoint['scheduler'])
+    if args.pretrained:
         print(f'=> setting head to zeros and remove pre_logits for tuning')
         hidden_width = state_dict['head.weight'].shape[1]
         state_dict['head.weight'] = torch.zeros(args.num_classes, hidden_width)
