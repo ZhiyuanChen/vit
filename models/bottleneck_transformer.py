@@ -109,10 +109,7 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2, mhsa=True)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Sequential(
-            nn.Dropout(0.3),  # All architecture deeper than ResNet-200 dropout_rate: 0.2
-            nn.Linear(512 * block.expansion, num_classes)
-        )
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride=1, mhsa=False):
         strides = [stride] + [1] * (num_blocks - 1)
