@@ -88,7 +88,8 @@ def main(args):
         print("length of validation dataset '{}'".format(len(val_loader)))
 
     if args.checkpoint:
-        best_acc1 = load_checkpoint(model, args, optimizer, scheduler, best_acc1)
+        load_checkpoint(model, args, optimizer, scheduler, best_acc1)
+    best_acc1 = 0
 
     if APEX_AVAILABLE:
         model, optimizer = amp.initialize(
