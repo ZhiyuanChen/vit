@@ -4,17 +4,16 @@ import subprocess
 import argparse
 
 # import models
+# model_names = sorted(name for name in models.__dict__
+#                      if name.islower() and not name.startswith("__")
+#                      and callable(models.__dict__[name]))
+model_names = ['s16', 'b16', 'b32', 'l16', 'l32', 'h14', 'v50', 'b50', 'sk50']
 
 prof = 'nvprof --profile-child-processes --profile-from-start off -fo {}'
 
 comm = 'GLOG_logtostderr=-1 GLOG_vmodule=MemcachedClient=-1 MC_COUNT_DISP=1000000 \
         OMPI_MCA_btl_smcuda_use_cuda_ipc=0 OMPI_MCA_mpi_warn_on_fork=0  \
         srun --mpi=pmi2 --job-name={} --partition={} -n {} --gres=gpu:{} --ntasks-per-node={}'
-
-# model_names = sorted(name for name in models.__dict__
-#                      if name.islower() and not name.startswith("__")
-#                      and callable(models.__dict__[name]))
-model_names = ['s16', 'b16', 'b32', 'l16', 'l32', 'h14', 'v50', 'b50']
 
 backends = dict(
     pytorch=dict(
