@@ -83,7 +83,8 @@ class BoTNet(ResNet):
             img_size = (img_size, img_size)
         self.img_size = img_size
         self.img_size = tuple(img_size // 16 for img_size in self.img_size)
-        self.layer4 = self._make_mhsa_layer(512, layers[3], stride=2)
+        self.inplanes //= 2
+        self.layer4 = self._make_mhsa_layer(512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
 
     def _make_mhsa_layer(self, planes: int, blocks: int, stride: int = 2,
                          dilate: bool = False) -> nn.Sequential:
