@@ -12,14 +12,12 @@ class SKConv(nn.Module):
     def __init__(self, width, branches=2, groups=32, reduce=16, stride=1, len=32):
         super(SKConv, self).__init__()
         len = max(width // reduce, len)
-        self.convs = nn.ModuleList([])
-        for i in range(branches):
-            self.convs.append(nn.Sequential(
-                nn.Conv2d(width, width, kernel_size=3, stride=stride, padding=1+i, dilation=1+i,
-                          groups=groups, bias=False),
-                nn.BatchNorm2d(width),
-                nn.ReLU(inplace=True)
-            ))
+        self.convs = nn.ModuleList([nn.Sequential(
+            nn.Conv2d(width, width, kernel_size=3, stride=stride, padding=1+i, dilation=1+i,
+                      groups=groups, bias=False),
+            nn.BatchNorm2d(width),
+            nn.ReLU(inplace=True)
+        ) for i in range(branches)])
         self.gap = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Sequential(
             nn.Conv2d(width, len, kernel_size=1, stride=1, bias=False),
@@ -34,8 +32,7 @@ class SKConv(nn.Module):
         self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
-        x = [conv(x) for conv in self.convs]
-        x = torch.stack(x, dim=1)
+        x = torch.stack([conv(x) for conv in self.convs], dim=1)
         attention = torch.sum(x, dim=1)
         attention = self.gap(attention)
         attention = self.fc(attention)
@@ -63,13 +60,14 @@ class SKUnit(Bottleneck):
     ) -> None:
         super(SKUnit, self).__init__(inplanes, planes, stride, downsample, groups, base_width, dilation, norm)
         width = int(planes * (base_width / 64.)) * groups
-        self.conv2 = SKConv(width, stride, groups, dilation)
+        self.conv2 = SKConv(width, stride=stride, groups=groups)
 
 
 class SKNet(ResNet):
 
     def __init__(
         self,
+        block: Type[SKUnit],
         layers: List[int],
         num_classes: int = 1000,
         zero_init_residual: bool = False,
@@ -78,9 +76,9 @@ class SKNet(ResNet):
         replace_stride_with_dilation: Optional[List[bool]] = None,
         norm: Optional[Callable[..., nn.Module]] = nn.BatchNorm2d
     ) -> None:
-        super(SKNet).__init__(SKUnit, layers, num_classes, zero_init_residual, groups, width_per_group,
+        super(SKNet).__init__(block, layers, num_classes, zero_init_residual, groups, width_per_group,
                               replace_stride_with_dilation, norm)
 
 
 def sk50(**kwargs):
-    return SKNet([3, 4, 6, 3])
+    return SKNet(SKUnit, [3, 4, 6, 3])
