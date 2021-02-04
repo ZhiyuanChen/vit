@@ -16,7 +16,7 @@ class ConvTokenizer(nn.Module):
         self.feature = nn.Conv2d(input_channels, C, kernel_size=1)
         self.conv_token_coef = nn.Conv2d(C, L, kernel_size=1)
         self.head = head
-        self.conv_value = nn.Conv2d(C, C,kernel_size=1, groups=groups)
+        self.conv_value = nn.Conv2d(C, C, kernel_size=1, groups=groups)
         self.C = C
 
     def forward(self, feature, token=0):
@@ -29,7 +29,8 @@ class ConvTokenizer(nn.Module):
         N, L, H, W = token_coef.shape
         token_coef = token_coef.view(N, 1, L, H * W)
         token_coef = token_coef.permute(0, 1, 3, 2)  # N, 1, HW, L
-        token_coef = token_coef / torch.sqrt(torch.tensor(feature.shape[1], device=token_coef.device, dtype=torch.float))
+        token_coef = token_coef / torch.sqrt(
+            torch.tensor(feature.shape[1], device=token_coef.device, dtype=torch.float))
         N, C, H, W = feature.shape
         token_coef = F.softmax(token_coef, dim=2)
         value = self.conv_value(feature).view(N, self.head, C // self.head, H * W)  # N, h, C//h, HW
@@ -87,7 +88,7 @@ class Projector(nn.Module):
         super(Projector, self).__init__()
         self.proj_value_conv = nn.Conv1d(CT, C, kernel_size=1)
         self.proj_key_conv = nn.Conv1d(CT, C, kernel_size=1)
-        self.proj_query_conv = nn.Conv2d(C, CT, kernel_size=1,groups=groups)
+        self.proj_query_conv = nn.Conv2d(C, CT, kernel_size=1, groups=groups)
         self.head = head
 
     def forward(self, feature, token):
@@ -99,7 +100,8 @@ class Projector(nn.Module):
         proj_q = self.proj_query_conv(feature)
         N, C, H, W = proj_q.shape
         proj_q = proj_q.view(N, h, C // h, H * W).permute(0, 1, 3, 2)
-        proj_coef = F.softmax(torch.Tensor.matmul(proj_q, proj_k) / torch.sqrt(torch.tensor(C / h, device=proj_q.device, dtype=torch.float)), dim=3)
+        proj_coef = F.softmax(torch.Tensor.matmul(proj_q, proj_k) / torch.sqrt(
+            torch.tensor(C / h, device=proj_q.device, dtype=torch.float)), dim=3)
         proj = torch.Tensor.matmul(proj_v, proj_coef.permute(0, 1, 3, 2))
         _, _, H, W = feature.shape
         return feature + proj.view(N, -1, H, W), token
@@ -167,10 +169,10 @@ class VisualTransformer(ResNet):
         layers = []
         layers.append(VTModule(ConvTokenizer, L, CT, C, channel, hidden_size, num_layers, num_heads, dropout, norm))
         for _ in range(1, blocks):
-            layers.append(VTModule(RecurrentTokenizer, L, CT, C, channel, hidden_size, num_layers, num_heads, dropout, norm))
+            layers.append(
+                VTModule(RecurrentTokenizer, L, CT, C, channel, hidden_size, num_layers, num_heads, dropout, norm))
 
         return nn.Sequential(*layers)
-
 
     def forward(self, x: Tensor) -> Tensor:
         # See note [TorchScript super()]
