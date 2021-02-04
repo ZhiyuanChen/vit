@@ -76,7 +76,7 @@ class SKNet(ResNet):
         replace_stride_with_dilation: Optional[List[bool]] = None,
         norm: Optional[Callable[..., nn.Module]] = nn.BatchNorm2d
     ) -> None:
-        super(SKNet).__init__(block, layers, num_classes, zero_init_residual, groups, width_per_group,
+        super(SKNet, self).__init__(block, layers, num_classes, zero_init_residual, groups, width_per_group,
                               replace_stride_with_dilation, norm)
 
 
