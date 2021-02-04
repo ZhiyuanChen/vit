@@ -77,6 +77,13 @@ class BoTNet(ResNet):
         img_size: int = 224,
         **kwargs
     ) -> None:
+        if replace_stride_with_dilation is None:
+            # each element in the tuple indicates if we should replace
+            # the 2x2 stride with a dilated convolution instead
+            replace_stride_with_dilation = [False, False, False]
+        if len(replace_stride_with_dilation) != 3:
+            raise ValueError("replace_stride_with_dilation should be None "
+                             "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         super(BoTNet, self).__init__(block, layers, num_classes, zero_init_residual, groups, width_per_group,
                                      replace_stride_with_dilation, norm)
         if type(img_size) is int:
