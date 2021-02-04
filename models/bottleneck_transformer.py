@@ -2,15 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from typing import Type, Any, Callable, Union, List, Optional
 
-def get_n_params(model):
-    pp = 0
-    for p in list(model.parameters()):
-        nn = 1
-        for s in list(p.size()):
-            nn = nn * s
-        pp += nn
-    return pp
+from .resnet import ResNet, Bottleneck
 
 
 class MHSA(nn.Module):
@@ -46,11 +40,11 @@ class MHSA(nn.Module):
         return out
 
 
-class Bottleneck(nn.Module):
+class MHSABlock(nn.Module):
     expansion = 4
 
     def __init__(self, in_planes, planes, stride=1, mhsa=False, resolution=None):
-        super(Bottleneck, self).__init__()
+        super(MHSABlock, self).__init__()
 
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
@@ -84,9 +78,9 @@ class Bottleneck(nn.Module):
 
 # reference
 # https://github.com/kuangliu/pytorch-cifar/blob/master/models/resnet.py
-class ResNet(nn.Module):
+class Botnet(nn.Module):
     def __init__(self, block, num_blocks, num_classes=1000, img_size=224, **kwargs):
-        super(ResNet, self).__init__()
+        super(Botnet, self).__init__()
         self.in_planes = 64
         self.resolution = list([img_size, img_size])
 
@@ -139,5 +133,22 @@ class ResNet(nn.Module):
         return x
 
 
-def b50(num_classes=1000, **kwargs):
-    return ResNet(Bottleneck, [3, 4, 6, 3], num_classes=num_classes, **kwargs)
+class BotNet(ResNet):
+
+    def __init__(
+        self,
+        block: Type[Bottleneck],
+        layers: List[int],
+        num_classes: int = 1000,
+        zero_init_residual: bool = False,
+        groups: int = 1,
+        width_per_group: int = 64,
+        replace_stride_with_dilation: Optional[List[bool]] = None,
+        norm: Optional[Callable[..., nn.Module]] = nn.BatchNorm2d,
+        **kwargs
+    ) -> None:
+        super(BotNet, self).__init__(block, layers, num_classes, zero_init_residual, groups, width_per_group, replace_stride_with_dilation, norm)
+
+
+def b50(**kwargs):
+    return BotNet(Bottleneck, [3, 4, 6, 3], **kwargs)
