@@ -53,10 +53,6 @@ def main(args):
         model = sync_bn(model)
 
     model = model.cuda().to(memory_format=memory_format)
-    state_dict = torch.load('/mnt/lustre/chenzhiyuan1/vit/debug/resnet50-19c8e357.pth')
-    del state_dict['fc.weight']
-    del state_dict['fc.bias']
-    model.load_state_dict(state_dict, strict=False)
 
     scale_factor = float(
         args.batch_size * args.world_size) * args.accum_steps / args.lr_factor
