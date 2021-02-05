@@ -2,27 +2,21 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from typing import Type, Any, Callable, Union, List, Optional, Tuple
 
-def get_n_params(model):
-    pp = 0
-    for p in list(model.parameters()):
-        nn = 1
-        for s in list(p.size()):
-            nn = nn * s
-        pp += nn
-    return pp
+from .resnet import ResNet, Bottleneck, conv1x1
 
 
 class MHSA(nn.Module):
-    def __init__(self, n_dims, width=14, height=14):
+    def __init__(self, planes, width=14, height=14):
         super(MHSA, self).__init__()
 
-        self.query = nn.Conv2d(n_dims, n_dims, kernel_size=1)
-        self.key = nn.Conv2d(n_dims, n_dims, kernel_size=1)
-        self.value = nn.Conv2d(n_dims, n_dims, kernel_size=1)
+        self.query = nn.Conv2d(planes, planes, kernel_size=1)
+        self.key = nn.Conv2d(planes, planes, kernel_size=1)
+        self.value = nn.Conv2d(planes, planes, kernel_size=1)
 
-        self.rel_h = nn.Parameter(torch.randn([1, n_dims, 1, height]), requires_grad=True)
-        self.rel_w = nn.Parameter(torch.randn([1, n_dims, width, 1]), requires_grad=True)
+        self.rel_h = nn.Parameter(torch.randn([1, planes, 1, height]), requires_grad=True)
+        self.rel_w = nn.Parameter(torch.randn([1, planes, width, 1]), requires_grad=True)
 
         self.softmax = nn.Softmax(dim=-1)
 
@@ -46,98 +40,83 @@ class MHSA(nn.Module):
         return out
 
 
-class Bottleneck(nn.Module):
+class MHSABlock(Bottleneck):
+
     expansion = 4
 
-    def __init__(self, in_planes, planes, stride=1, mhsa=False, resolution=None):
-        super(Bottleneck, self).__init__()
+    def __init__(
+        self,
+        inplanes: int,
+        planes: int,
+        stride: int = 1,
+        downsample: Optional[nn.Module] = None,
+        groups: int = 1,
+        base_width: int = 64,
+        dilation: int = 1,
+        norm: Optional[Callable[..., nn.Module]] = nn.BatchNorm2d,
+        img_size: Tuple[int, int] = (14, 14)
+    ) -> None:
+        super(MHSABlock, self).__init__(inplanes, planes, stride, downsample, groups, base_width, dilation, norm)
+        height, width = img_size
+        mhsa = MHSA(planes, width=width, height=height)
+        self.conv2 = mhsa if stride != 2 else nn.Sequential(mhsa, nn.AvgPool2d(2, 2))
 
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
-        if not mhsa:
-            self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, padding=1, stride=stride, bias=False)
-        else:
-            self.conv2 = nn.ModuleList()
-            self.conv2.append(MHSA(planes, width=int(resolution[0]), height=int(resolution[1])))
-            if stride == 2:
-                self.conv2.append(nn.AvgPool2d(2, 2))
-            self.conv2 = nn.Sequential(*self.conv2)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, self.expansion * planes, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(self.expansion * planes)
 
-        self.downsample = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion * planes:
-            self.downsample = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion * planes)
+class BoTNet(ResNet):
+
+    def __init__(
+        self,
+        block: Type[Bottleneck],
+        layers: List[int],
+        num_classes: int = 1000,
+        zero_init_residual: bool = False,
+        groups: int = 1,
+        width_per_group: int = 64,
+        replace_stride_with_dilation: Optional[List[bool]] = None,
+        norm: Optional[Callable[..., nn.Module]] = nn.BatchNorm2d,
+        img_size: int = 224,
+        **kwargs
+    ) -> None:
+        if replace_stride_with_dilation is None:
+            # each element in the tuple indicates if we should replace
+            # the 2x2 stride with a dilated convolution instead
+            replace_stride_with_dilation = [False, False, False]
+        if len(replace_stride_with_dilation) != 3:
+            raise ValueError("replace_stride_with_dilation should be None "
+                             "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
+        super(BoTNet, self).__init__(block, layers, num_classes, zero_init_residual, groups, width_per_group,
+                                     replace_stride_with_dilation, norm)
+        if type(img_size) is int:
+            img_size = (img_size, img_size)
+        self.img_size = img_size
+        self.img_size = tuple(img_size // 16 for img_size in self.img_size)
+        self.inplanes //= 2
+        self.layer4 = self._make_mhsa_layer(512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
+
+    def _make_mhsa_layer(self, planes: int, blocks: int, stride: int = 2,
+                         dilate: bool = False) -> nn.Sequential:
+        norm = self._norm
+        downsample = None
+        previous_dilation = self.dilation
+        if dilate:
+            self.dilation *= stride
+            stride = 1
+        if stride != 1 or self.inplanes != planes * MHSABlock.expansion:
+            downsample = nn.Sequential(
+                conv1x1(self.inplanes, planes * MHSABlock.expansion, stride),
+                norm(planes * MHSABlock.expansion),
             )
 
-    def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = F.relu(self.bn2(self.conv2(out)))
-        out = self.bn3(self.conv3(out))
-        out += self.downsample(x)
-        out = F.relu(out)
-        return out
+        layers = [MHSABlock(self.inplanes, planes, stride, downsample, self.groups,
+                            self.base_width, previous_dilation, norm)]
+        self.inplanes = planes * MHSABlock.expansion
+        for _ in range(1, blocks):
+            layers.append(MHSABlock(self.inplanes, planes, groups=self.groups,
+                                    base_width=self.base_width, dilation=self.dilation,
+                                    norm=norm))
 
-
-# reference
-# https://github.com/kuangliu/pytorch-cifar/blob/master/models/resnet.py
-class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=1000, img_size=224, **kwargs):
-        super(ResNet, self).__init__()
-        self.in_planes = 64
-        self.resolution = list([img_size, img_size])
-
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        # self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
-        if self.conv1.stride[0] == 2:
-            self.resolution[0] /= 2
-        if self.conv1.stride[1] == 2:
-            self.resolution[1] /= 2
-        self.bn1 = nn.BatchNorm2d(64)
-        self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        if self.maxpool.stride == 2:
-            self.resolution[0] /= 2
-            self.resolution[1] /= 2
-
-        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2, mhsa=True)
-
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
-
-    def _make_layer(self, block, planes, num_blocks, stride=1, mhsa=False):
-        strides = [stride] + [1] * (num_blocks - 1)
-        layers = []
-        for idx, stride in enumerate(strides):
-            layers.append(block(self.in_planes, planes, stride, mhsa, self.resolution))
-            if stride == 2:
-                self.resolution[0] /= 2
-                self.resolution[1] /= 2
-            self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-
-        x = self.avgpool(x)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
-        return x
-
-
-def b50(num_classes=1000, **kwargs):
-    return ResNet(Bottleneck, [3, 4, 6, 3], num_classes=num_classes, **kwargs)
+def b50(**kwargs):
+    return BoTNet(Bottleneck, [3, 4, 6, 3], **kwargs)
