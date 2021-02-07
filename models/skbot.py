@@ -17,7 +17,8 @@ class SBConv(nn.Module):
             conv3x3(planes, planes, stride=stride, groups=groups),
             nn.BatchNorm2d(planes),
             nn.ReLU(inplace=True))
-        self.attn = MHSA(planes, height=height, width=width)
+        mhsa = MHSA(planes, height=height, width=width)
+        self.attn = mhsa if stride != 2 else nn.Sequential(mhsa, nn.AvgPool2d(2, 2))
         self.convs = nn.ModuleList([self.conv, self.attn])
         self.gap = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Sequential(
