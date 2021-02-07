@@ -3,11 +3,11 @@ import os
 import subprocess
 import argparse
 
-# import models
-# model_names = sorted(name for name in models.__dict__
-#                      if name.islower() and not name.startswith("__")
-#                      and callable(models.__dict__[name]))
-model_names = ['s16', 'b16', 'b32', 'l16', 'l32', 'h14', 'v50', 'b50', 'sk50']
+import models
+model_names = sorted(name for name in models.__dict__
+                     if name.islower() and not name.startswith("__")
+                     and callable(models.__dict__[name]))
+# model_names = ['s16', 'b16', 'b32', 'l16', 'l32', 'h14', 'v50', 'b50']
 
 prof = 'nvprof --profile-child-processes --profile-from-start off -fo {}'
 
