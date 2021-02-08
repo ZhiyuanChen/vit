@@ -68,8 +68,8 @@ class DataFetcher(object):
             self.next_target = self.next_target.cuda(non_blocking=True)
             self.next_input = self.next_input.float()
             # normalise
-            self.next_input = self.next_input.sub_(127.5).div_(127.5)
-            # self.next_input = self.next_input.sub_(self.mean).div_(self.std)
+            # self.next_input = self.next_input.sub_(127.5).div_(127.5)
+            self.next_input = self.next_input.sub_(self.mean).div_(self.std)
 
     def __iter__(self):
         return self
