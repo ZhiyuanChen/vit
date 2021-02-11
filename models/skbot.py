@@ -86,6 +86,19 @@ class SKBot(ResNet):
         super(SKBot, self).__init__(block, layers, num_classes, zero_init_residual, groups, width_per_group,
                                     replace_stride_with_dilation, norm)
 
+        self.apply(self._init)
+
+    def _init(self, module):
+        if isinstance(module, nn.Linear):
+            nn.init.trunc_normal_(module.weight, std=.02)
+            if isinstance(module, nn.Linear) and module.bias is not None:
+                nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.LayerNorm):
+            nn.init.ones_(module.weight)
+            nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.BatchNorm2d):
+            nn.init.zeros_(module.weight)
+
     def _make_layer(self, block: Type[SBUnit], planes: int, blocks: int,
                     stride: int = 1, dilate: bool = False) -> nn.Sequential:
         norm = self._norm
