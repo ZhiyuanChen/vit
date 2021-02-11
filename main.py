@@ -58,7 +58,6 @@ def main(args):
         args.batch_size * args.world_size) * args.accum_steps / args.lr_factor
     args.lr = args.lr * scale_factor
     args.final_lr = args.final_lr * scale_factor
-    args.warmup_steps = args.warmup_steps // scale_factor
 
     optimizer = None
     scheduler = None
@@ -95,6 +94,8 @@ def main(args):
         train_dataset, train_sampler, train_loader = \
             data.load_data(args.train_data, train_transform, memory_format,
                            shuffle=False, **vars(args))
+
+        args.warmup_steps = args.warmup_steps // scale_factor if 'warmup_steps' in args and args.warmup_steps else args.warmup_epochs * len(train_loader)
 
         print("length of traning dataset '{}'".format(len(train_loader)))
         scheduler = LRScheduler(optimizer,

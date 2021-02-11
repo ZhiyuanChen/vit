@@ -60,7 +60,7 @@ modes = dict(
         weight_decay=0.03
     ),
     train=dict(
-        arch='b50',
+        arch='sb50',
         train=True,
         tune=False,
         validate=True,
@@ -75,7 +75,7 @@ modes = dict(
         epochs=200,
         save_freq=10,
         optimizer='SGD',
-        lr=3e-2,
+        lr=1.6,
         weight_decay=8e-5,
         lr_factor=4096.0,
         strategy='cosine',
@@ -219,11 +219,14 @@ def parse():
                           help='weight decay (default: 0.05)')
     optimize.add_argument('-ls', '--strategy', type=str, default='linear',
                           help='learning rate scaling strategy')
-    optimize.add_argument('-ws', '--warmup_steps', type=int, metavar='N', default=5000,
-                          help='number of warm up steps to run')
     optimize.add_argument('-gc', '--gradient_clip', type=float, default=1.0,
                           help='gradient clip')
     optimize.add_argument('--deterministic', action='store_true')
+    warmup = parser.add_mutually_exclusive_group()
+    warmup.add_argument('-ws', '--warmup_steps', type=int, metavar='N', default=0,
+                        help='number of warm up steps to run')
+    warmup.add_argument('-we', '--warmup_epochs', type=int, metavar='N', default=0,
+                        help='number of warm up epochs to run')
 
     aug = parser.add_argument_group()
     aug.add_argument('-cj', '--color_jitter', type=float, default=0.4, metavar='PCT',
