@@ -78,6 +78,7 @@ class SKBot(ResNet):
         replace_stride_with_dilation: Optional[List[bool]] = None,
         norm: Optional[Callable[..., nn.Module]] = nn.BatchNorm2d,
         img_size: int = 224,
+        **kwargs
     ) -> None:
         if type(img_size) is int:
             img_size = (img_size, img_size)
@@ -112,11 +113,12 @@ class SKBot(ResNet):
                 conv1x1(self.inplanes, planes * block.expansion, stride),
                 norm(planes * block.expansion),
             )
-            self.img_size = tuple(length // stride for length in self.img_size)
 
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
                             self.base_width, previous_dilation, norm, img_size=self.img_size))
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            self.img_size = tuple(length // stride for length in self.img_size)
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
             layers.append(block(self.inplanes, planes, groups=self.groups,
@@ -127,4 +129,4 @@ class SKBot(ResNet):
 
 
 def sb50(**kwargs):
-    return SKBot(SBUnit, [3, 4, 6, 3])
+    return SKBot(SBUnit, [3, 4, 6, 3], **kwargs)
