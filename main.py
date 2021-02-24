@@ -41,7 +41,7 @@ def main(args):
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
     print("creating model '{}'".format(args.arch))
-    model = getattr(models, args.arch)(pre_size=args.tune, **vars(args))
+    model = getattr(models, args.arch)(**vars(args))
 
     if args.sync_bn:
         print('Convert model with Sync BatchNormal')
@@ -87,7 +87,8 @@ def main(args):
         print("length of validation dataset '{}'".format(len(val_loader)))
 
     if args.checkpoint:
-        best_acc1 = load_checkpoint(model, args, optimizer, scheduler, best_acc1)
+        load_checkpoint(model, args, optimizer, scheduler, best_acc1)
+    best_acc1 = 0
 
     if APEX_AVAILABLE:
         model, optimizer = amp.initialize(
@@ -124,7 +125,7 @@ def main(args):
             is_best = acc1 > best_acc1
             best_acc1 = max(acc1, best_acc1)
             net = model.module if args.distributed else model
-            if epoch % args.save_freq == 0 or is_best:
+            if (epoch + 1) % args.save_freq == 0 or is_best:
                 state_dict = {
                     'epoch': epoch,
                     'arch': args.arch,
