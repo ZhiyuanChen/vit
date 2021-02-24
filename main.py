@@ -32,9 +32,9 @@ def main(args):
         args.batch_size * args.world_size) * args.accum_steps / args.lr_factor
     global best_acc1, experiment, logger, writer, save_dir
     best_acc1, experiment, logger, writer, save_dir = init(args)
-    args.lr = args.lr * scale_factor
-    args.final_lr = args.final_lr * scale_factor
-    args.warmup_steps = args.warmup_steps // scale_factor
+    args.lr = args.lr * args.scale_factor
+    args.final_lr = args.final_lr * args.scale_factor
+    args.warmup_steps = args.warmup_steps // args.scale_factor
 
     print('\nArguments:' + '\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
 
