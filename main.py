@@ -30,8 +30,13 @@ except ImportError:
 
 
 def main(args):
+    args.scale_factor = float(
+        args.batch_size * args.world_size) * args.accum_steps / args.lr_factor
     global best_acc1, experiment, logger, writer, save_dir
     best_acc1, experiment, logger, writer, save_dir = init(args)
+    args.lr = args.lr * args.scale_factor
+    args.final_lr = args.final_lr * args.scale_factor
+    args.warmup_steps = args.warmup_steps // args.scale_factor
 
     print('\nArguments:' + '\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
 
@@ -49,18 +54,13 @@ def main(args):
     model = getattr(models, args.arch)(**vars(args))
 
     if args.sync_bn:
-        print('Convery model with Sync BatchNormal')
+        print('Convert model with Sync BatchNormal')
         model = sync_bn(model)
 
     model = model.cuda().to(memory_format=memory_format)
-
-    scale_factor = float(
-        args.batch_size * args.world_size) * args.accum_steps / args.lr_factor
-    args.lr = args.lr * scale_factor
-    args.final_lr = args.final_lr * scale_factor
-
     optimizer = None
     scheduler = None
+
     if args.train:
         if args.optimizer in ('SGD', 'RMSprop'):
             optimizer = getattr(torch.optim, args.optimizer)(
@@ -94,8 +94,6 @@ def main(args):
         train_dataset, train_sampler, train_loader = \
             data.load_data(args.train_data, train_transform, memory_format,
                            shuffle=False, **vars(args))
-
-        args.warmup_steps = args.warmup_steps // scale_factor if 'warmup_steps' in args and args.warmup_steps else args.warmup_epochs * len(train_loader)
 
         print("length of traning dataset '{}'".format(len(train_loader)))
         scheduler = LRScheduler(optimizer,
@@ -166,7 +164,7 @@ def main(args):
             is_best = acc1 > best_acc1
             best_acc1 = max(acc1, best_acc1)
             net = model.module if args.distributed else model
-            if (epoch + 1) % args.save_freq == 0:
+            if (epoch + 1) % args.save_freq == 0 or is_best:
                 state_dict = {
                     'epoch': epoch,
                     'arch': args.arch,
