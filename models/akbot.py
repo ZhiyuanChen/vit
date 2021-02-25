@@ -9,9 +9,9 @@ from .resnet import ResNet, Bottleneck, conv3x3, conv1x1
 from .bottleneck_transformer import MHSA
 
 
-class SBConv(nn.Module):
+class ABConv(nn.Module):
     def __init__(self, planes, branches=2, groups=32, reduce=16, stride=1, hidden=32, height=14, width=14):
-        super(SBConv, self).__init__()
+        super(ABConv, self).__init__()
         hidden = max(planes // reduce, hidden)
         self.conv = nn.Sequential(
             conv3x3(planes, planes, stride=stride, groups=groups),
@@ -32,18 +32,12 @@ class SBConv(nn.Module):
         self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
-        x = torch.stack([conv(x) for conv in self.convs], dim=1)
-        attention = torch.sum(x, dim=1)
-        attention = self.gap(attention)
-        attention = self.fc(attention)
-        attention = [fc(attention) for fc in self.fcs]
-        attention = torch.stack(attention, dim=1)
-        attention = self.softmax(attention)
-        x = torch.sum(x * attention, dim=1)
+        import pdb; pdb.set_trace()
+        x = torch.stack([conv(x) for conv in self.convs]).sum(0)
         return x
 
 
-class SBUnit(Bottleneck):
+class ABUnit(Bottleneck):
 
     expansion: int = 2
 
@@ -60,16 +54,16 @@ class SBUnit(Bottleneck):
         img_size: Tuple[int, int] = (14, 14)
     ) -> None:
         height, width = img_size
-        super(SBUnit, self).__init__(inplanes, planes, stride, downsample, groups, base_width, dilation, norm)
+        super(ABUnit, self).__init__(inplanes, planes, stride, downsample, groups, base_width, dilation, norm)
         planes = int(planes * (base_width / 64.)) * groups
-        self.conv2 = SBConv(planes, stride=stride, groups=groups, height=height, width=width)
+        self.conv2 = ABConv(planes, stride=stride, groups=groups, height=height, width=width)
 
 
-class SKBot(ResNet):
+class AKBot(ResNet):
 
     def __init__(
         self,
-        block: Type[SBUnit],
+        block: Type[ABUnit],
         layers: List[int],
         num_classes: int = 1000,
         zero_init_residual: bool = False,
@@ -84,7 +78,7 @@ class SKBot(ResNet):
             img_size = (img_size, img_size)
         self.img_size = img_size
         self.img_size = tuple(length // 4 for length in self.img_size)
-        super(SKBot, self).__init__(block, layers, num_classes, zero_init_residual, groups, width_per_group,
+        super(AKBot, self).__init__(block, layers, num_classes, zero_init_residual, groups, width_per_group,
                                     replace_stride_with_dilation, norm)
 
         self.apply(self._init)
@@ -100,7 +94,7 @@ class SKBot(ResNet):
         # elif isinstance(module, nn.BatchNorm2d):
         #     nn.init.zeros_(module.weight)
 
-    def _make_layer(self, block: Type[SBUnit], planes: int, blocks: int,
+    def _make_layer(self, block: Type[ABUnit], planes: int, blocks: int,
                     stride: int = 1, dilate: bool = False) -> nn.Sequential:
         norm = self._norm
         downsample = None
@@ -128,10 +122,10 @@ class SKBot(ResNet):
         return nn.Sequential(*layers)
 
 
-def sb50(**kwargs):
-    return SKBot(SBUnit, [3, 4, 6, 3], **kwargs)
+def ab50(**kwargs):
+    return AKBot(ABUnit, [3, 4, 6, 3], **kwargs)
 
 
-def sb26(**kwargs):
-    return SKBot(SBUnit, [2, 2, 2, 2], **kwargs)
+def ab26(**kwargs):
+    return AKBot(ABUnit, [2, 2, 2, 2], **kwargs)
 
