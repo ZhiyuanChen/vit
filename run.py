@@ -132,7 +132,7 @@ def parse():
     mode = selector.add_mutually_exclusive_group()
     mode.add_argument('-t', '--train', action='store_true', help='train model')
     mode.add_argument('-u', '--tune', action='store_true', help='tune model')
-    parser.add_argument('-v', '--validate', action='store_true', help='validate model')
+    selector.add_argument('-v', '--validate', action='store_true', help='validate model')
 
     parser = argparse.ArgumentParser(description='Vision Transformer')
     parser.add_argument('-id', '--experiment_id', type=str, default='8992',
