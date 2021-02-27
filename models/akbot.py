@@ -32,7 +32,6 @@ class ABConv(nn.Module):
         self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
-        import pdb; pdb.set_trace()
         x = torch.stack([conv(x) for conv in self.convs]).sum(0)
         return x
 
