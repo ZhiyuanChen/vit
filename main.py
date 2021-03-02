@@ -266,7 +266,7 @@ def train(loader, model, criterion, optimizer, scheduler, epoch, args, logger=No
                 writer.add_scalar('train/lr', lr, total_iter)
 
             print(f'Epoch: [{epoch}][{iteration}/{len(loader)}]\t'
-                  f'LR {lr:.6f}\t'
+                  # f'LR {lr:.6f}\t'
                   f'Time {batch_time.val:.2f} ({batch_time.avg:.2f})\t'
                   # f'Speed {args.world_size*args.batch_size/batch_time.val:.2f} '
                   # f'({args.world_size*args.batch_size/batch_time.avg:.2f})\t'
