@@ -40,14 +40,6 @@ def main(args):
 
     print('\nArguments:' + '\n'.join([f'{k}\t{v}' for k, v in vars(args).items()]))
 
-    mixup_fn = None
-    mixup_active = args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None
-    if mixup_active:
-        mixup_fn = Mixup(
-            mixup_alpha=args.mixup, cutmix_alpha=args.cutmix, cutmix_minmax=args.cutmix_minmax,
-            prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
-            label_smoothing=args.smoothing, num_classes=args.num_classes)
-
     memory_format = torch.channels_last if args.channels_last else torch.contiguous_format
 
     print("creating model '{}'".format(args.arch))
@@ -135,8 +127,14 @@ def main(args):
 
     train_criterion = nn.CrossEntropyLoss()
     val_criterion = nn.CrossEntropyLoss()
-    if args.mixup > 0.:
+
+    mixup_fn = None
+    if args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None:
         train_criterion = SoftTargetCrossEntropy()
+        mixup_fn = Mixup(
+            mixup_alpha=args.mixup, cutmix_alpha=args.cutmix, cutmix_minmax=args.cutmix_minmax,
+            prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
+            label_smoothing=args.smoothing, num_classes=args.num_classes)
     elif args.smoothing:
         train_criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
     train_criterion.cuda()
@@ -147,8 +145,8 @@ def main(args):
             if args.distributed:
                 train_sampler.set_epoch(epoch)
             acc1, acc5, loss = train(train_loader, model, train_criterion,
-                                      optimizer, scheduler, epoch, args,
-                                      logger, writer, mixup_fn)
+                                     optimizer, scheduler, epoch, args,
+                                     logger, writer, mixup_fn)
         if args.validate:
             val_writer = writer if not args.train else None
             acc1, acc5, loss = validate(val_loader, model, val_criterion, args, 
